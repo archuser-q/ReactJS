@@ -1,6 +1,6 @@
 import { App, Avatar, Button, Popconfirm, Space, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
-import { LockOutlined, UnlockOutlined, UserOutlined } from '@ant-design/icons'
+import { EyeOutlined, LockOutlined, UnlockOutlined, UserOutlined } from '@ant-design/icons'
 import { updateUserStatus } from '../../api/users'
 import type { Paginated, UserListParams, UserRow } from '../../api/users'
 import type { ApiError } from '../../api/client'
@@ -12,9 +12,10 @@ type Props = {
   params: UserListParams
   onPageChange: (next: Partial<UserListParams>) => void
   onChanged: () => void
+  onView: (id: string) => void
 }
 
-export default function UserTable({ data, loading, params, onPageChange, onChanged }: Props) {
+export default function UserTable({ data, loading, params, onPageChange, onChanged, onView }: Props) {
   const { message } = App.useApp()
 
   const toggleStatus = async (user: UserRow) => {
@@ -57,16 +58,21 @@ export default function UserTable({ data, loading, params, onPageChange, onChang
       render: (_, u) => {
         const locking = u.status === 'active'
         return (
-          <Popconfirm
-            title={locking ? 'Khóa tài khoản này?' : 'Mở khóa tài khoản này?'}
-            okText="Đồng ý"
-            cancelText="Hủy"
-            onConfirm={() => toggleStatus(u)}
-          >
-            <Button size="small" danger={locking} icon={locking ? <LockOutlined /> : <UnlockOutlined />}>
-              {locking ? 'Khóa' : 'Mở khóa'}
+          <Space>
+            <Button size="small" icon={<EyeOutlined />} onClick={() => onView(u.id)}>
+              Chi tiết
             </Button>
-          </Popconfirm>
+            <Popconfirm
+              title={locking ? 'Khóa tài khoản này?' : 'Mở khóa tài khoản này?'}
+              okText="Đồng ý"
+              cancelText="Hủy"
+              onConfirm={() => toggleStatus(u)}
+            >
+              <Button size="small" danger={locking} icon={locking ? <LockOutlined /> : <UnlockOutlined />}>
+                {locking ? 'Khóa' : 'Mở khóa'}
+              </Button>
+            </Popconfirm>
+          </Space>
         )
       },
     },
