@@ -1,12 +1,16 @@
 import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { App, Button, Card, Col, Form, Input, Row, Typography } from 'antd'
 import { LockOutlined, UserOutlined } from '@ant-design/icons'
-import { login } from '../api/auth'
+import { getMe, login } from '../api/auth'
 import type { ApiError } from '../api/client'
 
 export const Route = createFileRoute('/login')({
-  component: LoginPage,
+  beforeLoad: async()=>{
+    const user = await getMe().catch(()=>null)
+    if (user) throw redirect({ to: '/' })
+  },
+  component: LoginPage
 })
 
 type LoginForm = { identifier: string; password: string }

@@ -21,3 +21,12 @@ export const login = async (identifier: string, password: string) => {
     )
     return data
 }
+
+export const getMe = async() => {
+    const {data} = await api.get<{user: AdminUser}>('/admin/auth/me')
+    return data.user
+}
+
+export const logout = async() => {
+    await api.post('/admin/auth/logout')
+}
