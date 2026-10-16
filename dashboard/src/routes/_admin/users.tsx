@@ -1,10 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Card, Flex, Typography } from 'antd'
-import { useUserList } from '../../hooks/useUserList'
+import { usePagedList } from '../../hooks/usePagedList'
 import UserFilters from '../../components/users/UserFilters'
 import UserTable from '../../components/users/UserTable'
 import UserDetailDrawer from '../../components/users/UserDetailDrawer'
 import { useState } from 'react'
+import { listUsers } from '../../api/users'
 
 export const Route = createFileRoute('/_admin/users')({
   component: UsersPage,
@@ -12,8 +13,7 @@ export const Route = createFileRoute('/_admin/users')({
 
 function UsersPage() {
   const [viewingId, setViewingId] = useState<string | null>(null)
-  const { params, data, loading, reload, updateParams } = useUserList({
-    role: 'customer',
+  const { params, data, loading, reload, updateParams } = usePagedList(listUsers, {
     page: 1,
     pageSize: 10,
   })
