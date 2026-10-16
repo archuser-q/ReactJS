@@ -1,6 +1,6 @@
 import { Flex, Layout, Menu, MenuProps, Typography } from "antd";
 import { FileRouteTypes } from "../../routeTree.gen";
-import { DashboardOutlined, ToolOutlined, UserOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, DashboardOutlined, ToolOutlined, UserOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 
@@ -10,6 +10,7 @@ const items: MenuItem[] = [
   { key: '/', icon: <DashboardOutlined />, label: 'Tổng quan' },
   { key: '/users', icon: <UserOutlined />, label: 'Khách hàng' },
   { key: '/workers', icon: <ToolOutlined />, label: 'Thợ' },
+  { key: '/services', icon: <AppstoreOutlined />, label: 'Dịch vụ' },
 ]
 
 export default function AppSidebar(){
