@@ -13,6 +13,7 @@ import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminIndexRouteImport } from './routes/_admin/index'
 import { Route as AdminComplaintsRouteImport } from './routes/_admin/complaints'
+import { Route as AdminMatchingRouteImport } from './routes/_admin/matching'
 import { Route as AdminOrdersRouteImport } from './routes/_admin/orders'
 import { Route as AdminReportsRouteImport } from './routes/_admin/reports'
 import { Route as AdminServicesRouteImport } from './routes/_admin/services'
@@ -36,6 +37,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminComplaintsRoute = AdminComplaintsRouteImport.update({
   id: '/complaints',
   path: '/complaints',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMatchingRoute = AdminMatchingRouteImport.update({
+  id: '/matching',
+  path: '/matching',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminOrdersRoute = AdminOrdersRouteImport.update({
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AdminIndexRoute
   '/login': typeof LoginRoute
   '/complaints': typeof AdminComplaintsRoute
+  '/matching': typeof AdminMatchingRoute
   '/orders': typeof AdminOrdersRoute
   '/reports': typeof AdminReportsRoute
   '/services': typeof AdminServicesRoute
@@ -77,6 +84,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/complaints': typeof AdminComplaintsRoute
+  '/matching': typeof AdminMatchingRoute
   '/orders': typeof AdminOrdersRoute
   '/reports': typeof AdminReportsRoute
   '/services': typeof AdminServicesRoute
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/_admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/_admin/complaints': typeof AdminComplaintsRoute
+  '/_admin/matching': typeof AdminMatchingRoute
   '/_admin/orders': typeof AdminOrdersRoute
   '/_admin/reports': typeof AdminReportsRoute
   '/_admin/services': typeof AdminServicesRoute
@@ -102,6 +111,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/complaints'
+    | '/matching'
     | '/orders'
     | '/reports'
     | '/services'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/complaints'
+    | '/matching'
     | '/orders'
     | '/reports'
     | '/services'
@@ -122,6 +133,7 @@ export interface FileRouteTypes {
     | '/_admin'
     | '/login'
     | '/_admin/complaints'
+    | '/_admin/matching'
     | '/_admin/orders'
     | '/_admin/reports'
     | '/_admin/services'
@@ -165,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminComplaintsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/matching': {
+      id: '/_admin/matching'
+      path: '/matching'
+      fullPath: '/matching'
+      preLoaderRoute: typeof AdminMatchingRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/orders': {
       id: '/_admin/orders'
       path: '/orders'
@@ -205,6 +224,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminComplaintsRoute: typeof AdminComplaintsRoute
+  AdminMatchingRoute: typeof AdminMatchingRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminServicesRoute: typeof AdminServicesRoute
@@ -215,6 +235,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminComplaintsRoute: AdminComplaintsRoute,
+  AdminMatchingRoute: AdminMatchingRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminServicesRoute: AdminServicesRoute,
