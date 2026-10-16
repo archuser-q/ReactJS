@@ -3,8 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { ConfigProvider, App as AntApp } from 'antd'
 import { routeTree } from './routeTree.gen'
+import RouteError from './components/layout/RouteError'
 
-const router = createRouter({ routeTree })
+const router = createRouter({ routeTree, defaultErrorComponent: RouteError })
 
 declare module '@tanstack/react-router' {
   interface Register {
