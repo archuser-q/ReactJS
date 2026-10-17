@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Thợ Nhanh",
+    "slug": "tho-nhanh-customer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "supportsTablet": false },
+    "android": {},
+    "plugins": [
+      [
+        "expo-location",
+        { "locationWhenInUsePermission": "Thợ Nhanh dùng vị trí để lưu địa chỉ và tìm thợ gần bạn." }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}
