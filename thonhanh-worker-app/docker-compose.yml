@@ -1,0 +1,43 @@
+# App thợ. Chạy backend trước (thư mục backend: docker compose up -d --build), rồi tại đây:
+#   Bản web:      docker compose up -d --build            -> http://localhost:8082
+#   Bản Expo Go:  ghi HOST_IP=<IP LAN máy tính> vào file .env, rồi:
+#                   docker compose --profile dev up -d --build -V worker-dev
+#                   docker compose --profile dev logs -f worker-dev      (chờ mã QR)
+#                 (-V: làm mới node_modules trong container khi bản app mới có thêm thư viện)
+name: tho-nhanh-app
+
+services:
+  worker-web:
+    build:
+      context: .
+      target: web
+    environment:
+      # Để trống: tự gọi http://<máy đang mở web>:3000/api
+      API_URL: ${API_URL:-}
+    ports:
+      - "${WORKER_WEB_PORT:-8082}:80"
+    restart: unless-stopped
+
+  worker-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: dev
+    environment:
+      # IP LAN của máy tính (ipconfig / ip a) để điện thoại kết nối được Metro
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${HOST_IP:-}
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-}
+    # In sẵn địa chỉ để nhập tay trong Expo Go (khi không thấy / không quét được mã QR)
+    command:
+      - sh
+      - -c
+      - >-
+        echo "[worker-dev] Dang khoi dong Expo... Neu khong thay ma QR: mo Expo Go > Enter URL manually > exp://$${REACT_NATIVE_PACKAGER_HOSTNAME:-<HOST_IP>}:8081";
+        exec npx expo start --lan --port 8081
+    ports:
+      - "8081:8081"
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./:/app
+      - /app/node_modules

@@ -1,0 +1,72 @@
+{
+  "expo": {
+    "name": "Thợ Nhanh Đối Tác",
+    "slug": "tho-nhanh-worker",
+    "scheme": "thonhanhworker",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "vn.thonhanh.worker",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Thợ Nhanh dùng vị trí để ghép bạn với đơn gần nhất và để khách theo dõi bạn khi đang tới.",
+        "NSCameraUsageDescription": "Chụp ảnh giấy tờ xác minh và ảnh trước/sau khi sửa chữa.",
+        "NSPhotoLibraryUsageDescription": "Chọn ảnh giấy tờ, ảnh công việc để gửi lên hệ thống."
+      }
+    },
+    "android": {
+      "package": "vn.thonhanh.worker",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B1F3A"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Thợ Nhanh Đối Tác",
+      "themeColor": "#0B1F3A"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Thợ Nhanh dùng vị trí để ghép bạn với đơn gần nhất và để khách theo dõi bạn khi đang tới."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Chọn ảnh giấy tờ, ảnh công việc để gửi lên hệ thống.",
+          "cameraPermission": "Chụp ảnh giấy tờ xác minh và ảnh trước/sau khi sửa chữa."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B1F3A"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0B1F3A"
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser"
+    ]
+  }
+}
