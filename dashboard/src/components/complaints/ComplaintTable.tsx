@@ -3,7 +3,7 @@ import type { TableProps } from 'antd'
 import { EyeOutlined } from '@ant-design/icons'
 import type { Paginated } from '../../api/users'
 import type { ComplaintListParams, ComplaintRow } from '../../api/complaints'
-import { COMPLAINT_STATUS, COMPLAINT_TYPE } from '../../constants/complaints'
+import { COMPLAINT_SOURCE, COMPLAINT_STATUS, COMPLAINT_TYPE, complaintTitle } from '../../constants/complaints'
 import { formatDateTime } from '../../constants/order'
 
 type Props = {
@@ -17,11 +17,17 @@ type Props = {
 export default function ComplaintTable({ data, loading, params, onPageChange, onView }: Props) {
   const columns: TableProps<ComplaintRow>['columns'] = [
     {
+      title: 'Người gửi',
+      dataIndex: 'source',
+      render: (s: ComplaintRow['source']) => <Tag color={COMPLAINT_SOURCE[s].color}>{COMPLAINT_SOURCE[s].label}</Tag>,
+    },
+    {
       title: 'Loại',
       dataIndex: 'type',
-      render: (t: ComplaintRow['type']) => <Tag color={COMPLAINT_TYPE[t].color}>{COMPLAINT_TYPE[t].label}</Tag>,
+      render: (t: ComplaintRow['type'], c) =>
+        c.source === 'worker' ? <Tag>Sự cố đơn hàng</Tag> : <Tag color={COMPLAINT_TYPE[t].color}>{COMPLAINT_TYPE[t].label}</Tag>,
     },
-    { title: 'Tiêu đề', dataIndex: 'title', render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
+    { title: 'Tiêu đề', dataIndex: 'title', render: (v: string) => <Typography.Text strong>{complaintTitle(v)}</Typography.Text> },
     { title: 'Mã đơn', dataIndex: 'order_code' },
     { title: 'Khách hàng', dataIndex: 'customer_name' },
     { title: 'Thợ', dataIndex: 'worker_name', render: (v: string | null) => v ?? '—' },

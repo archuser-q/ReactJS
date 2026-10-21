@@ -1,4 +1,10 @@
-import type { WeightKey } from '../api/matching'
+import type { MatchingMode, WeightKey } from '../api/matching'
+
+export const MODES: { value: MatchingMode; label: string; color: string; help: string }[] = [
+  { value: 'auto', label: 'Tự động', color: 'purple', help: 'Mỗi vài giây hệ thống tự chọn: đơn không tranh thợ với đơn nào gửi ngay cho top-k thợ (như tức thời); nhóm đơn cùng cần 1 nhóm thợ thì ghép tối ưu bằng Hungarian (như theo lô). Khuyến nghị.' },
+  { value: 'instant', label: 'Tức thời', color: 'blue', help: 'Mỗi đơn gửi ngay cho k thợ điểm cao nhất (Greedy); hết thời gian chờ thì gửi đợt tiếp theo.' },
+  { value: 'batch', label: 'Theo lô', color: 'gold', help: 'Gom đơn trong cửa sổ lô rồi ghép tối ưu toàn cục bằng Hungarian, mỗi đơn mời đúng 1 thợ.' },
+]
 
 export const WEIGHTS: { key: WeightKey; label: string; short: string; help: string }[] = [
   { key: 'w_distance', label: 'Khoảng cách', short: 'KC', help: 'Thợ càng gần khách điểm càng cao' },

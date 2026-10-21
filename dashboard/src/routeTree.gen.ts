@@ -14,10 +14,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminIndexRouteImport } from './routes/_admin/index'
 import { Route as AdminComplaintsRouteImport } from './routes/_admin/complaints'
 import { Route as AdminMatchingRouteImport } from './routes/_admin/matching'
+import { Route as AdminMonitorRouteImport } from './routes/_admin/monitor'
 import { Route as AdminOrdersRouteImport } from './routes/_admin/orders'
 import { Route as AdminReportsRouteImport } from './routes/_admin/reports'
 import { Route as AdminServicesRouteImport } from './routes/_admin/services'
 import { Route as AdminUsersRouteImport } from './routes/_admin/users'
+import { Route as AdminWithdrawalsRouteImport } from './routes/_admin/withdrawals'
 import { Route as AdminWorkersRouteImport } from './routes/_admin/workers'
 
 const AdminRoute = AdminRouteImport.update({
@@ -44,6 +46,11 @@ const AdminMatchingRoute = AdminMatchingRouteImport.update({
   path: '/matching',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMonitorRoute = AdminMonitorRouteImport.update({
+  id: '/monitor',
+  path: '/monitor',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminOrdersRoute = AdminOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
@@ -64,6 +71,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminWithdrawalsRoute = AdminWithdrawalsRouteImport.update({
+  id: '/withdrawals',
+  path: '/withdrawals',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminWorkersRoute = AdminWorkersRouteImport.update({
   id: '/workers',
   path: '/workers',
@@ -75,20 +87,24 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/complaints': typeof AdminComplaintsRoute
   '/matching': typeof AdminMatchingRoute
+  '/monitor': typeof AdminMonitorRoute
   '/orders': typeof AdminOrdersRoute
   '/reports': typeof AdminReportsRoute
   '/services': typeof AdminServicesRoute
   '/users': typeof AdminUsersRoute
+  '/withdrawals': typeof AdminWithdrawalsRoute
   '/workers': typeof AdminWorkersRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/complaints': typeof AdminComplaintsRoute
   '/matching': typeof AdminMatchingRoute
+  '/monitor': typeof AdminMonitorRoute
   '/orders': typeof AdminOrdersRoute
   '/reports': typeof AdminReportsRoute
   '/services': typeof AdminServicesRoute
   '/users': typeof AdminUsersRoute
+  '/withdrawals': typeof AdminWithdrawalsRoute
   '/workers': typeof AdminWorkersRoute
   '/': typeof AdminIndexRoute
 }
@@ -98,10 +114,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_admin/complaints': typeof AdminComplaintsRoute
   '/_admin/matching': typeof AdminMatchingRoute
+  '/_admin/monitor': typeof AdminMonitorRoute
   '/_admin/orders': typeof AdminOrdersRoute
   '/_admin/reports': typeof AdminReportsRoute
   '/_admin/services': typeof AdminServicesRoute
   '/_admin/users': typeof AdminUsersRoute
+  '/_admin/withdrawals': typeof AdminWithdrawalsRoute
   '/_admin/workers': typeof AdminWorkersRoute
   '/_admin/': typeof AdminIndexRoute
 }
@@ -112,20 +130,24 @@ export interface FileRouteTypes {
     | '/login'
     | '/complaints'
     | '/matching'
+    | '/monitor'
     | '/orders'
     | '/reports'
     | '/services'
     | '/users'
+    | '/withdrawals'
     | '/workers'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/complaints'
     | '/matching'
+    | '/monitor'
     | '/orders'
     | '/reports'
     | '/services'
     | '/users'
+    | '/withdrawals'
     | '/workers'
     | '/'
   id:
@@ -134,10 +156,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/_admin/complaints'
     | '/_admin/matching'
+    | '/_admin/monitor'
     | '/_admin/orders'
     | '/_admin/reports'
     | '/_admin/services'
     | '/_admin/users'
+    | '/_admin/withdrawals'
     | '/_admin/workers'
     | '/_admin/'
   fileRoutesById: FileRoutesById
@@ -184,6 +208,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMatchingRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/monitor': {
+      id: '/_admin/monitor'
+      path: '/monitor'
+      fullPath: '/monitor'
+      preLoaderRoute: typeof AdminMonitorRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/orders': {
       id: '/_admin/orders'
       path: '/orders'
@@ -212,6 +243,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/withdrawals': {
+      id: '/_admin/withdrawals'
+      path: '/withdrawals'
+      fullPath: '/withdrawals'
+      preLoaderRoute: typeof AdminWithdrawalsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/workers': {
       id: '/_admin/workers'
       path: '/workers'
@@ -225,10 +263,12 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminComplaintsRoute: typeof AdminComplaintsRoute
   AdminMatchingRoute: typeof AdminMatchingRoute
+  AdminMonitorRoute: typeof AdminMonitorRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminServicesRoute: typeof AdminServicesRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminWithdrawalsRoute: typeof AdminWithdrawalsRoute
   AdminWorkersRoute: typeof AdminWorkersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -236,10 +276,12 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminComplaintsRoute: AdminComplaintsRoute,
   AdminMatchingRoute: AdminMatchingRoute,
+  AdminMonitorRoute: AdminMonitorRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminServicesRoute: AdminServicesRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminWithdrawalsRoute: AdminWithdrawalsRoute,
   AdminWorkersRoute: AdminWorkersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

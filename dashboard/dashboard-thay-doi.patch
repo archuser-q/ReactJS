@@ -1,0 +1,3626 @@
+diff --git a/.dockerignore b/.dockerignore
+new file mode 100644
+index 0000000..f2ccdb4
+--- /dev/null
++++ b/.dockerignore
+@@ -0,0 +1,4 @@
++node_modules
++dist
++.env
++.git
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..cebabee
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,5 @@
++# Địa chỉ backend Node dùng chung (Vite dev proxy /api và /media sang đây)
++VITE_PROXY_TARGET=http://localhost:3000
++
++# Tuỳ chọn: gọi thẳng backend thay vì qua proxy (cần CLIENT_ORIGIN của backend có địa chỉ web này)
++# VITE_API_URL=http://localhost:3000/api
+diff --git a/Dockerfile b/Dockerfile
+new file mode 100644
+index 0000000..1edc76c
+--- /dev/null
++++ b/Dockerfile
+@@ -0,0 +1,15 @@
++# Web quản trị THỢ NHANH: build Vite rồi phục vụ bằng nginx (proxy /api, /media sang backend)
++FROM node:22-alpine AS build
++WORKDIR /app
++COPY package.json package-lock.json ./
++RUN npm ci --no-audit --no-fund
++COPY . .
++RUN npm run build
++
++FROM nginx:1.27-alpine
++COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
++COPY --from=build /app/dist /usr/share/nginx/html
++# Chỉ thay biến API_UPSTREAM, giữ nguyên các biến $uri, $http_host... của nginx
++ENV NGINX_ENVSUBST_FILTER=API_UPSTREAM
++ENV API_UPSTREAM=http://host.docker.internal:3000
++EXPOSE 80
+diff --git a/README.md b/README.md
+index d937833..77b078d 100644
+--- a/README.md
++++ b/README.md
+@@ -1,16 +1,41 @@
+-# React + Vite
++# THỢ NHANH — Web quản trị
+ 
+-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
++React 19 + Vite + TanStack Router + Ant Design 6. Gọi backend Node dùng chung của nhóm qua `/api/admin/...` (cookie httpOnly).
+ 
+-Currently, two official plugins are available:
++## Chạy
+ 
+-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
++Cần backend chạy trước (repo nodejs: `docker compose up -d --build`, cổng 3000).
+ 
+-## React Compiler
++```bash
++npm install
++npm run dev          # http://localhost:5173 — Vite proxy /api, /media sang http://localhost:3000
++```
+ 
+-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
++Đổi địa chỉ backend: tạo `.env` từ `.env.example`, sửa `VITE_PROXY_TARGET`.
+ 
+-## Expanding the Oxlint configuration
++Docker (nginx, cũng proxy `/api` sang backend):
+ 
+-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
++```bash
++docker compose up -d --build      # http://localhost:5173
++# backend ở máy khác: API_UPSTREAM=http://192.168.1.10:3000 docker compose up -d --build
++```
++
++Đăng nhập: `admin@thonhanh.vn` / `12345678`.
++
++Kiểm tra trước khi đẩy code: `npm run typecheck && npm run lint && npm run build`.
++
++## Các trang
++
++| Trang | Việc |
++|---|---|
++| Tổng quan | số liệu + **việc cần xử lý** (hồ sơ thợ, rút tiền, báo cáo sự cố, đơn chờ lâu) |
++| Bản đồ giám sát | đơn đang chạy + vị trí thợ (app thợ gửi lên), tự cập nhật 5 giây, bấm để xem chi tiết |
++| Thợ | **hàng chờ duyệt** theo thời gian gửi hồ sơ; **duyệt / từ chối từng giấy tờ** kèm lý do (app thợ hiện lý do dưới đúng giấy) |
++| Đơn hàng | chi tiết có ảnh trước/sau của thợ, lịch sử lời mời của bộ ghép cặp, vết di chuyển của thợ |
++| Rút tiền | duyệt / từ chối lệnh rút của thợ (từ chối thì tiền hoàn về ví). Cần backend đặt `WITHDRAWAL_AUTO_APPROVE=false`, nếu không lệnh rút được duyệt tự động |
++| Khiếu nại | tách **khiếu nại của khách** và **báo cáo sự cố của thợ**; xử lý xong tự báo cho người gửi |
++| Ghép cặp | bộ trọng số + chế độ ghép (Tự động / Tức thời / Theo lô, k), **trạng thái bộ điều phối** và đổi nhanh chế độ |
++
++Chuông trên header: việc cần xử lý + thông báo gửi cho admin (VD thợ vừa gửi hồ sơ).
++
++API bổ sung phía backend: `docs/ADMIN_API.md` trong repo nodejs.
+diff --git a/docker-compose.yml b/docker-compose.yml
+new file mode 100644
+index 0000000..86519b7
+--- /dev/null
++++ b/docker-compose.yml
+@@ -0,0 +1,18 @@
++# Web quản trị THỢ NHANH
++#   1. Chạy backend trước (repo nodejs):  docker compose up -d --build   -> http://localhost:3000
++#   2. Ở thư mục này:                      docker compose up -d --build   -> http://localhost:5173
++# Đăng nhập: admin@thonhanh.vn / 12345678
++name: tho-nhanh-dashboard
++
++services:
++  dashboard:
++    build: .
++    image: tho-nhanh/dashboard:latest
++    environment:
++      # Backend chạy ở máy host (cổng 3000). Đổi nếu backend ở máy khác, VD http://192.168.1.10:3000
++      API_UPSTREAM: ${API_UPSTREAM:-http://host.docker.internal:3000}
++    extra_hosts:
++      - "host.docker.internal:host-gateway"   # cần cho Linux; Docker Desktop (Windows/macOS) có sẵn
++    ports:
++      - "${DASHBOARD_PORT:-5173}:80"
++    restart: unless-stopped
+diff --git a/docker/nginx.conf.template b/docker/nginx.conf.template
+new file mode 100644
+index 0000000..15caa0b
+--- /dev/null
++++ b/docker/nginx.conf.template
+@@ -0,0 +1,29 @@
++server {
++    listen 80;
++    server_name _;
++    root /usr/share/nginx/html;
++    index index.html;
++
++    # API + ảnh của backend: cùng origin với web quản trị nên cookie đăng nhập hoạt động, không cần CORS
++    location /api/ {
++        proxy_pass ${API_UPSTREAM};
++        proxy_http_version 1.1;
++        proxy_set_header Host $http_host;
++        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
++        proxy_set_header X-Forwarded-Proto $scheme;
++    }
++
++    location /media/ {
++        proxy_pass ${API_UPSTREAM};
++    }
++
++    location /assets/ {
++        expires 30d;
++        add_header Cache-Control "public, immutable";
++    }
++
++    # SPA: mọi đường dẫn khác trả index.html cho TanStack Router
++    location / {
++        try_files $uri /index.html;
++    }
++}
+diff --git a/index.html b/index.html
+index cc627a4..3005e3a 100644
+--- a/index.html
++++ b/index.html
+@@ -1,13 +1,13 @@
+ <!doctype html>
+-<html lang="en">
++<html lang="vi">
+   <head>
+     <meta charset="UTF-8" />
+     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+-    <title>dashboard</title>
++    <title>THỢ NHANH · Quản trị</title>
+   </head>
+   <body>
+     <div id="root"></div>
+-    <script type="module" src="/src/main.jsx"></script>
++    <script type="module" src="/src/main.tsx"></script>
+   </body>
+ </html>
+diff --git a/package-lock.json b/package-lock.json
+index 65a3491..744b7cb 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -14,15 +14,18 @@
+         "antd": "^6.6.6",
+         "axios": "^1.20.0",
+         "dayjs": "^1.11.23",
++        "leaflet": "^1.9.4",
+         "react": "^19.2.8",
+         "react-dom": "^19.2.8"
+       },
+       "devDependencies": {
+         "@tanstack/router-plugin": "^1.168.46",
++        "@types/leaflet": "^1.9.20",
+         "@types/react": "^19.2.18",
+         "@types/react-dom": "^19.2.7",
+         "@vitejs/plugin-react": "^6.1.1",
+         "oxlint": "^1.81.0",
++        "typescript": "^5.8.3",
+         "vite": "^8.3.0"
+       }
+     },
+@@ -843,9 +846,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -863,9 +863,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -883,9 +880,6 @@
+         "ppc64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -903,9 +897,6 @@
+         "riscv64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -923,9 +914,6 @@
+         "riscv64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -943,9 +931,6 @@
+         "s390x"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -963,9 +948,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -983,9 +965,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1900,9 +1879,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1920,9 +1896,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1940,9 +1913,6 @@
+         "ppc64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1960,9 +1930,6 @@
+         "s390x"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1980,9 +1947,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2000,9 +1964,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2399,6 +2360,16 @@
+       "integrity": "sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==",
+       "license": "MIT"
+     },
++    "node_modules/@types/leaflet": {
++      "version": "1.9.20",
++      "resolved": "https://registry.npmjs.org/@types/leaflet/-/leaflet-1.9.20.tgz",
++      "integrity": "sha512-rooalPMlk61LCaLOvBF2VIf9M47HgMQqi5xQ9QRi7c8PkdIe0WrIi5IxXUXQjAdL0c+vcQ01mYWbthzmp9GHWw==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/geojson": "*"
++      }
++    },
+     "node_modules/@types/react": {
+       "version": "19.3.0",
+       "resolved": "https://registry.npmjs.org/@types/react/-/react-19.3.0.tgz",
+@@ -3497,6 +3468,12 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/leaflet": {
++      "version": "1.9.4",
++      "resolved": "https://registry.npmjs.org/leaflet/-/leaflet-1.9.4.tgz",
++      "integrity": "sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==",
++      "license": "BSD-2-Clause"
++    },
+     "node_modules/lightningcss": {
+       "version": "1.33.0",
+       "resolved": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz",
+@@ -3640,9 +3617,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -3664,9 +3638,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -3688,9 +3659,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -3712,9 +3680,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -4208,6 +4173,20 @@
+       "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
+       "license": "0BSD"
+     },
++    "node_modules/typescript": {
++      "version": "5.8.3",
++      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.8.3.tgz",
++      "integrity": "sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "bin": {
++        "tsc": "bin/tsc",
++        "tsserver": "bin/tsserver"
++      },
++      "engines": {
++        "node": ">=14.17"
++      }
++    },
+     "node_modules/unplugin": {
+       "version": "3.4.0",
+       "resolved": "https://registry.npmjs.org/unplugin/-/unplugin-3.4.0.tgz",
+diff --git a/package.json b/package.json
+index 855ff4d..b375859 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,8 @@
+     "dev": "vite",
+     "build": "vite build",
+     "lint": "oxlint",
+-    "preview": "vite preview"
++    "preview": "vite preview",
++    "typecheck": "tsc -p ."
+   },
+   "dependencies": {
+     "@ant-design/icons": "^6.3.4",
+@@ -16,15 +17,18 @@
+     "antd": "^6.6.6",
+     "axios": "^1.20.0",
+     "dayjs": "^1.11.23",
++    "leaflet": "^1.9.4",
+     "react": "^19.2.8",
+     "react-dom": "^19.2.8"
+   },
+   "devDependencies": {
+     "@tanstack/router-plugin": "^1.168.46",
++    "@types/leaflet": "^1.9.20",
+     "@types/react": "^19.2.18",
+     "@types/react-dom": "^19.2.7",
+     "@vitejs/plugin-react": "^6.1.1",
+     "oxlint": "^1.81.0",
++    "typescript": "^5.8.3",
+     "vite": "^8.3.0"
+   }
+ }
+diff --git a/src/api/client.ts b/src/api/client.ts
+index 9274f08..82064d1 100644
+--- a/src/api/client.ts
++++ b/src/api/client.ts
+@@ -5,8 +5,10 @@ export type ApiError = {
+     message: string;
+ }
+ 
++// Mặc định gọi cùng origin qua '/api' (Vite dev và nginx trong Docker đều proxy sang backend),
++// nên cookie đăng nhập httpOnly luôn là cookie cùng site. Muốn gọi thẳng backend thì đặt VITE_API_URL.
+ export const api = axios.create({
+-    baseURL: import.meta.env.VITE_API_URL,
++    baseURL: import.meta.env.VITE_API_URL || '/api',
+     withCredentials: true,
+ })
+ 
+@@ -15,8 +17,8 @@ api.interceptors.response.use(
+     (err)=>{
+         const error: ApiError={
+             status: err.response?.status,
+-            message: err.response?.data?.message || 'Unable to connect to server',
++            message: err.response?.data?.message || 'Không kết nối được máy chủ',
+         }
+         return Promise.reject(error)
+     }
+-)
+\ No newline at end of file
++)
+diff --git a/src/api/complaints.ts b/src/api/complaints.ts
+index 21d7b96..be7086f 100644
+--- a/src/api/complaints.ts
++++ b/src/api/complaints.ts
+@@ -4,6 +4,8 @@ import type { Paginated } from './users'
+ 
+ export type ComplaintStatus = 'open' | 'processing' | 'resolved' | 'rejected'
+ export type ComplaintType = 'complaint' | 'warranty'
++/** customer = khách gửi từ app khách; worker = thợ báo cáo sự cố từ app thợ (reporter_id khác null) */
++export type ComplaintSource = 'customer' | 'worker'
+ 
+ export type ComplaintRow = {
+   id: string
+@@ -12,6 +14,8 @@ export type ComplaintRow = {
+   status: ComplaintStatus
+   created_at: string
+   resolved_at: string | null
++  reporter_id: string | null
++  source: ComplaintSource
+   order_id: string
+   order_code: string
+   customer_name: string
+@@ -22,6 +26,7 @@ export type ComplaintListParams = {
+   search?: string
+   status?: ComplaintStatus
+   type?: ComplaintType
++  source?: ComplaintSource
+   page: number
+   pageSize: number
+ }
+@@ -36,6 +41,9 @@ export type ComplaintDetail = {
+   resolution: string | null
+   created_at: string
+   resolved_at: string | null
++  reporter_id: string | null
++  reporter_name: string | null
++  source: ComplaintSource
+   order_id: string
+   order_code: string
+   order_status: OrderStatus
+diff --git a/src/api/dashboard.ts b/src/api/dashboard.ts
+index 1c4fc37..af1f761 100644
+--- a/src/api/dashboard.ts
++++ b/src/api/dashboard.ts
+@@ -27,4 +27,20 @@ export type Overview = { stats: OverviewStats; recentOrders: RecentOrder[] }
+ export const getOverview = async () => {
+   const { data } = await api.get<Overview>('/admin/dashboard/overview')
+   return data
+-}
+\ No newline at end of file
++}
++
++/** Việc admin cần xử lý (chuông trên header + ô cảnh báo ở trang tổng quan) */
++export type PendingCounts = {
++  workers_to_review: number
++  withdrawals_pending: number
++  withdrawals_pending_amount: number
++  complaints_open: number
++  reports_open: number
++  orders_matching: number
++  orders_waiting_long: number
++}
++
++export const getPending = async () => {
++  const { data } = await api.get<PendingCounts>('/admin/dashboard/pending')
++  return data
++}
+diff --git a/src/api/dispatch.ts b/src/api/dispatch.ts
+new file mode 100644
+index 0000000..665e5db
+--- /dev/null
++++ b/src/api/dispatch.ts
+@@ -0,0 +1,41 @@
++import { api } from './client'
++import type { MatchingMode } from './matching'
++
++type RoundInfo = { at: string; orders: number; [key: string]: unknown }
++
++export type DispatchStatus = {
++  dispatcher: {
++    enabled: boolean
++    leader: boolean
++    tick_seconds: number
++    ticks?: number
++    offers_sent?: number
++    last_tick_at?: string
++    last_auto?: RoundInfo
++    last_batch?: RoundInfo
++    last_error?: { at: string; message: string }
++  }
++  config: {
++    id: number | null
++    name: string
++    mode: MatchingMode
++    max_offers: number
++    offer_timeout_seconds: number
++    batch_window_seconds: number
++    max_radius_km: number
++  }
++  queue: { mode: MatchingMode; orders: number; oldest: string }[]
++  live_offers: number
++}
++
++// API của thành viên B (src/routes/admin/dispatch.routes.js)
++export const getDispatchStatus = async () => {
++  const { data } = await api.get<DispatchStatus>('/admin/dispatch/status')
++  return data
++}
++
++/** Đổi nhanh chế độ ghép của cấu hình đang áp dụng (dùng khi demo / thực nghiệm) */
++export const setDispatchMode = async (mode: MatchingMode, max_offers?: number) => {
++  const { data } = await api.put<{ message: string }>('/admin/dispatch/mode', { mode, max_offers })
++  return data
++}
+diff --git a/src/api/matching.ts b/src/api/matching.ts
+index 466c585..3d73a72 100644
+--- a/src/api/matching.ts
++++ b/src/api/matching.ts
+@@ -2,11 +2,16 @@ import { api } from './client'
+ 
+ export type WeightKey = 'w_distance' | 'w_trust' | 'w_skill' | 'w_acceptance' | 'w_workload'
+ 
++/** Chế độ ghép do hệ thống chạy: tức thời (Greedy top-k), theo lô (Hungarian), tự động (hệ thống tự chọn cho từng nhóm đơn) */
++export type MatchingMode = 'instant' | 'batch' | 'auto'
++
+ export type MatchingConfigInput = Record<WeightKey, number> & {
+   name: string
+   max_radius_km: number
+   offer_timeout_seconds: number
+   batch_window_seconds: number
++  mode: MatchingMode
++  max_offers: number
+ }
+ 
+ export type MatchingConfig = MatchingConfigInput & {
+diff --git a/src/api/monitor.ts b/src/api/monitor.ts
+new file mode 100644
+index 0000000..231f5e5
+--- /dev/null
++++ b/src/api/monitor.ts
+@@ -0,0 +1,50 @@
++import { api } from './client'
++import type { OrderStatus } from './dashboard'
++
++export type MapOrder = {
++  id: string
++  code: string
++  status: OrderStatus
++  address_text: string
++  scheduled_at: string | null
++  created_at: string
++  accepted_at: string | null
++  price: number
++  lat: number
++  lng: number
++  service_name: string
++  category_name: string
++  customer_name: string
++  worker_id: string | null
++  worker_name: string | null
++  dispatch_rounds: number | null
++  dispatch_offers: number | null
++  dispatch_candidates: number | null
++  live_offers: number
++}
++
++export type MapWorker = {
++  id: string
++  full_name: string
++  phone: string | null
++  avatar_url: string | null
++  is_online: boolean
++  is_busy: boolean
++  lat: number
++  lng: number
++  location_updated_at: string | null
++  service_radius_km: number
++  rating_avg: number
++  rating_count: number
++  /** Vị trí còn đủ mới để được ghép đơn (LOCATION_MAX_AGE_MINUTES của backend) */
++  location_fresh: boolean
++  current_order_code: string | null
++  skills: string[]
++}
++
++export type MapData = { orders: MapOrder[]; workers: MapWorker[]; generated_at: string }
++
++export const getMapData = async () => {
++  const { data } = await api.get<MapData>('/admin/monitor/map')
++  return data
++}
+diff --git a/src/api/notifications.ts b/src/api/notifications.ts
+new file mode 100644
+index 0000000..21c748a
+--- /dev/null
++++ b/src/api/notifications.ts
+@@ -0,0 +1,26 @@
++import { api } from './client'
++import type { Paginated } from './users'
++
++export type AdminNotification = {
++  id: string
++  title: string
++  body: string | null
++  type: string
++  data: Record<string, unknown> | null
++  is_read: boolean
++  created_at: string
++}
++
++export const listNotifications = async (params: { page?: number; pageSize?: number; unread?: boolean } = {}) => {
++  const { data } = await api.get<Paginated<AdminNotification> & { unread: number }>('/admin/notifications', { params })
++  return data
++}
++
++export const markNotificationRead = async (id: string) => {
++  await api.patch(`/admin/notifications/${id}/read`)
++}
++
++export const markAllNotificationsRead = async () => {
++  const { data } = await api.patch<{ updated: number }>('/admin/notifications/read-all')
++  return data
++}
+diff --git a/src/api/orders.ts b/src/api/orders.ts
+index bbe0783..ed21bc8 100644
+--- a/src/api/orders.ts
++++ b/src/api/orders.ts
+@@ -44,6 +44,7 @@ export type OrderDetail = {
+     cancelled_at: string | null
+     cancel_reason: string | null
+     warranty_until: string | null
++    safety_checked_at: string | null
+     estimated_price: number
+     extra_amount: number
+     final_price: number | null
+@@ -68,7 +69,7 @@ export type OrderDetail = {
+     created_at: string
+     changed_by_name: string | null
+   }[]
+-  quotes: { id: string; description: string; amount: number; status: 'pending' | 'approved' | 'rejected'; created_at: string }[]
++  quotes: { id: string; description: string; amount: number; status: QuoteStatus; created_at: string }[]
+   payments: {
+     id: string
+     method: 'cash' | 'momo' | 'vnpay'
+@@ -79,6 +80,42 @@ export type OrderDetail = {
+     created_at: string
+   }[]
+   review: { id: string; rating: number; comment: string | null; is_flagged: boolean; created_at: string } | null
++  /** Ảnh thợ chụp trên app thợ: trước khi sửa / sau khi sửa */
++  photos: { id: string; kind: 'before' | 'after'; url: string; created_at: string }[]
++  /** Các lời mời bộ điều phối đã gửi cho thợ */
++  offers: OrderOffer[]
++  /** Vết di chuyển của thợ khi làm đơn (app thợ gửi ~20 giây / điểm) */
++  trail: { lat: number; lng: number; recorded_at: string }[]
++  /** Hàng đợi ghép cặp (chỉ có khi đơn đang tìm thợ) */
++  dispatch: {
++    mode: 'instant' | 'batch' | 'auto'
++    rounds: number
++    offers_sent: number
++    last_candidates: number | null
++    next_attempt_at: string
++    last_attempt_at: string | null
++    deadline_at: string
++    created_at: string
++  } | null
++}
++
++export type QuoteStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
++export type OfferStatus = 'offered' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
++
++export type OrderOffer = {
++  id: string
++  worker_id: string
++  worker_name: string
++  mode: 'instant' | 'batch'
++  round: number
++  rank_position: number | null
++  score: number
++  distance_km: number | null
++  status: OfferStatus
++  reason: string | null
++  offered_at: string
++  expires_at: string
++  responded_at: string | null
+ }
+ 
+ export const listOrders = async (params: OrderListParams) => {
+diff --git a/src/api/withdrawals.ts b/src/api/withdrawals.ts
+new file mode 100644
+index 0000000..3b8cab6
+--- /dev/null
++++ b/src/api/withdrawals.ts
+@@ -0,0 +1,39 @@
++import { api } from './client'
++import type { Paginated } from './users'
++
++export type WithdrawalStatus = 'pending' | 'completed' | 'rejected'
++
++export type Withdrawal = {
++  id: number
++  worker_id: number
++  worker_name: string
++  worker_phone: string | null
++  amount: number
++  bank_name: string
++  account_number: string
++  account_holder: string
++  status: WithdrawalStatus
++  transaction_code: string | null
++  note: string | null
++  created_at: string
++  processed_at: string | null
++}
++
++export type WithdrawalListParams = { status?: WithdrawalStatus; page: number; pageSize: number }
++
++// API của thành viên B (src/routes/admin/dispatch.routes.js)
++export const listWithdrawals = async (params: WithdrawalListParams) => {
++  const { data } = await api.get<Paginated<Withdrawal>>('/admin/withdrawals', { params })
++  return data
++}
++
++export const approveWithdrawal = async (id: number, note?: string) => {
++  const { data } = await api.post<Withdrawal>(`/admin/withdrawals/${id}/approve`, { note })
++  return data
++}
++
++/** Từ chối: tiền được hoàn lại vào ví thợ */
++export const rejectWithdrawal = async (id: number, note: string) => {
++  const { data } = await api.post<Withdrawal>(`/admin/withdrawals/${id}/reject`, { note })
++  return data
++}
+diff --git a/src/api/workers.ts b/src/api/workers.ts
+index 7b9cc33..518af91 100644
+--- a/src/api/workers.ts
++++ b/src/api/workers.ts
+@@ -13,7 +13,13 @@ export type WorkerRow = {
+   status: UserStatus
+   created_at: string
+   verification_status: Verification
++  /** Lúc thợ bấm "Gửi hồ sơ" trên app thợ (null = đang điền dở, chưa cần duyệt) */
++  submitted_at: string | null
+   is_online: boolean
++  is_busy: boolean
++  /** Số giấy tờ đang chờ duyệt (thợ đã duyệt gửi giấy mới cũng tính) */
++  pending_docs: number
++  needs_review: boolean
+   experience_years: number
+   total_jobs: number
+   rating_avg: number
+@@ -26,16 +32,19 @@ export type WorkerListParams = {
+   search?: string
+   status?: UserStatus
+   verification?: Verification
++  review?: 'needed'
+   page: number
+   pageSize: number
+ }
+ 
+ export type WorkerDetail = {
+-  worker: Omit<WorkerRow, 'skills'> & {
++  worker: Omit<WorkerRow, 'skills' | 'pending_docs' | 'needs_review'> & {
+     last_login_at: string | null
+     bio: string | null
+     verification_note: string | null
+     verified_at: string | null
++    verified_by_name: string | null
++    location_updated_at: string | null
+     service_radius_km: number
+     is_flagged: boolean
+     acceptance_rate: number
+@@ -43,17 +52,23 @@ export type WorkerDetail = {
+     wallet_balance: number
+   }
+   skills: { id: number; name: string; years: number }[]
+-  documents: {
+-    id: string
+-    doc_type: DocumentType
+-    file_url: string
+-    status: Verification
+-    reject_reason: string | null
+-    created_at: string
+-    reviewed_at: string | null
+-  }[]
++  documents: WorkerDocument[]
+   stats: { completed_orders: number; cancelled_orders: number; total_revenue: number }
+   recentReviews: { id: string; rating: number; comment: string | null; created_at: string; customer_name: string }[]
++  bankAccount: { bank_name: string; account_number: string; account_holder: string; updated_at: string } | null
++}
++
++export type WorkerDocument = {
++  id: string
++  doc_type: DocumentType
++  file_url: string
++  status: Verification
++  reject_reason: string | null
++  created_at: string
++  reviewed_at: string | null
++  reviewed_by_name: string | null
++  /** Bản mới nhất của loại giấy này (bản cũ hơn chỉ để đối chiếu) */
++  is_current: boolean
+ }
+ 
+ export const listWorkers = async (params: WorkerListParams) => {
+@@ -69,4 +84,17 @@ export const getWorkerDetail = async (id: string) => {
+ export const reviewWorker = async (id: string, status: 'approved' | 'rejected', note?: string) => {
+   const { data } = await api.patch<{ message: string }>(`/admin/workers/${id}/verification`, { status, note })
+   return data
+-}
+\ No newline at end of file
++}
++
++export const reviewDocument = async (
++  workerId: string,
++  docId: string,
++  status: 'approved' | 'rejected',
++  reject_reason?: string,
++) => {
++  const { data } = await api.patch<{ message: string; document: WorkerDocument }>(
++    `/admin/workers/${workerId}/documents/${docId}`,
++    { status, reject_reason },
++  )
++  return data
++}
+diff --git a/src/components/category/CategoryFormModal.tsx b/src/components/category/CategoryFormModal.tsx
+index 0df6485..a987237 100644
+--- a/src/components/category/CategoryFormModal.tsx
++++ b/src/components/category/CategoryFormModal.tsx
+@@ -30,7 +30,7 @@ export default function CategoryFormModal({ open, editing, loading, onCancel, on
+     >
+       <Form form={form} layout="vertical" onFinish={onSubmit}>
+         <Form.Item name="name" label="Tên danh mục" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập tên' }]}>
+-          <Input placeholder="VD: Điện lạnh" />
++          <Input placeholder="VD: Sửa chữa điện" />
+         </Form.Item>
+         <Form.Item name="description" label="Mô tả">
+           <Input.TextArea rows={2} />
+diff --git a/src/components/complaints/ComplaintDetailDrawer.tsx b/src/components/complaints/ComplaintDetailDrawer.tsx
+index 915ff7c..3c1c007 100644
+--- a/src/components/complaints/ComplaintDetailDrawer.tsx
++++ b/src/components/complaints/ComplaintDetailDrawer.tsx
+@@ -4,7 +4,7 @@ import { FileSearchOutlined } from '@ant-design/icons'
+ import { getComplaintDetail, handleComplaint } from '../../api/complaints'
+ import type { ComplaintDetail, HandleComplaintInput } from '../../api/complaints'
+ import type { ApiError } from '../../api/client'
+-import { COMPLAINT_STATUS, COMPLAINT_TYPE } from '../../constants/complaints'
++import { COMPLAINT_SOURCE, COMPLAINT_STATUS, COMPLAINT_TYPE, complaintTitle } from '../../constants/complaints'
+ import { ORDER_STATUS, formatDateTime, formatMoney } from '../../constants/order'
+ import OrderDetailDrawer from '../orders/OrderDetailDrawer'
+ import ComplaintHandleForm from './ComplaintHandleForm'
+@@ -62,13 +62,15 @@ export default function ComplaintDetailDrawer({ complaintId, onClose, onChanged
+         <Flex vertical gap={16}>
+           <Flex vertical gap={8}>
+             <Space wrap>
+-              <Tag color={COMPLAINT_TYPE[data.type].color}>{COMPLAINT_TYPE[data.type].label}</Tag>
++              <Tag color={COMPLAINT_SOURCE[data.source].color}>{COMPLAINT_SOURCE[data.source].label}</Tag>
++              {data.source === 'customer' && <Tag color={COMPLAINT_TYPE[data.type].color}>{COMPLAINT_TYPE[data.type].label}</Tag>}
+               <Tag color={COMPLAINT_STATUS[data.status].color}>{COMPLAINT_STATUS[data.status].label}</Tag>
+             </Space>
+-            <Typography.Title level={4}>{data.title}</Typography.Title>
+-            <Typography.Paragraph>{data.content}</Typography.Paragraph>
++            <Typography.Title level={4}>{complaintTitle(data.title)}</Typography.Title>
++            {data.content !== complaintTitle(data.title) && <Typography.Paragraph>{data.content}</Typography.Paragraph>}
+             <Typography.Text type="secondary">
+-              {data.customer_name} gửi lúc {formatDateTime(data.created_at)}
++              {data.source === 'worker' ? `Thợ ${data.reporter_name ?? data.worker_name ?? ''}` : `Khách ${data.customer_name}`} gửi lúc{' '}
++              {formatDateTime(data.created_at)}
+             </Typography.Text>
+           </Flex>
+ 
+@@ -82,7 +84,16 @@ export default function ComplaintDetailDrawer({ complaintId, onClose, onChanged
+             </Image.PreviewGroup>
+           )}
+ 
+-          {data.type === 'warranty' && (
++          {data.source === 'worker' && (
++            <Alert
++              type="warning"
++              showIcon
++              title="Báo cáo sự cố do thợ gửi từ app thợ"
++              description="Khách không nhìn thấy báo cáo này. Kết quả xử lý sẽ được gửi thông báo cho thợ, thợ xem lại trong mục Báo cáo sự cố."
++            />
++          )}
++
++          {data.type === 'warranty' && data.source === 'customer' && (
+             <Alert
+               type={inWarranty ? 'success' : 'warning'}
+               showIcon
+@@ -124,7 +135,7 @@ export default function ComplaintDetailDrawer({ complaintId, onClose, onChanged
+           ) : (
+             <>
+               {data.resolution && <Alert type="info" showIcon title="Ghi chú trước đó" description={data.resolution} />}
+-              <ComplaintHandleForm key={data.status} loading={saving} onSubmit={submit} />
++              <ComplaintHandleForm key={data.status} loading={saving} onSubmit={submit} audience={data.source === 'worker' ? 'thợ' : 'khách'} />
+             </>
+           )}
+         </Flex>
+diff --git a/src/components/complaints/ComplaintFilters.tsx b/src/components/complaints/ComplaintFilters.tsx
+index 27dfa09..823c126 100644
+--- a/src/components/complaints/ComplaintFilters.tsx
++++ b/src/components/complaints/ComplaintFilters.tsx
+@@ -1,6 +1,6 @@
+ import { Input, Select, Space } from 'antd'
+-import type { ComplaintListParams, ComplaintStatus, ComplaintType } from '../../api/complaints'
+-import { COMPLAINT_STATUS, COMPLAINT_TYPE } from '../../constants/complaints'
++import type { ComplaintListParams, ComplaintSource, ComplaintStatus, ComplaintType } from '../../api/complaints'
++import { COMPLAINT_SOURCE, COMPLAINT_STATUS, COMPLAINT_TYPE } from '../../constants/complaints'
+ 
+ type Props = { onChange: (next: Partial<ComplaintListParams>) => void }
+ 
+@@ -13,6 +13,13 @@ export default function ComplaintFilters({ onChange }: Props) {
+         enterButton
+         onSearch={(value) => onChange({ search: value || undefined })}
+       />
++      <Select<ComplaintSource>
++        placeholder="Người gửi"
++        allowClear
++        popupMatchSelectWidth={false}
++        onChange={(value) => onChange({ source: value })}
++        options={Object.entries(COMPLAINT_SOURCE).map(([value, s]) => ({ value: value as ComplaintSource, label: s.label }))}
++      />
+       <Select<ComplaintType>
+         placeholder="Loại"
+         allowClear
+diff --git a/src/components/complaints/ComplaintHandleForm.tsx b/src/components/complaints/ComplaintHandleForm.tsx
+index c5336eb..8abfeda 100644
+--- a/src/components/complaints/ComplaintHandleForm.tsx
++++ b/src/components/complaints/ComplaintHandleForm.tsx
+@@ -3,10 +3,12 @@ import type { HandleComplaintInput } from '../../api/complaints'
+ 
+ type Props = {
+   loading: boolean
++  /** Ai sẽ nhận thông báo kết quả: khách (khiếu nại) hoặc thợ (báo cáo sự cố) */
++  audience?: 'khách' | 'thợ'
+   onSubmit: (values: HandleComplaintInput) => void
+ }
+ 
+-export default function ComplaintHandleForm({ loading, onSubmit }: Props) {
++export default function ComplaintHandleForm({ loading, onSubmit, audience = 'khách' }: Props) {
+   const [form] = Form.useForm<HandleComplaintInput>()
+   const status = Form.useWatch('status', form)
+ 
+@@ -25,10 +27,10 @@ export default function ComplaintHandleForm({ loading, onSubmit }: Props) {
+         </Form.Item>
+         <Form.Item
+           name="resolution"
+-          label="Hướng giải quyết (khách sẽ nhìn thấy)"
++          label={`Hướng giải quyết (${audience} sẽ nhận thông báo)`}
+           rules={[{ required: status !== 'processing', whitespace: true, message: 'Vui lòng nhập hướng giải quyết' }]}
+         >
+-          <Input.TextArea rows={3} placeholder="VD: Đã yêu cầu thợ quay lại bảo hành miễn phí trong 24h" />
++          <Input.TextArea rows={3} placeholder={audience === 'thợ' ? 'VD: Đã liên hệ khách, khách sẽ thanh toán trong hôm nay' : 'VD: Đã yêu cầu thợ quay lại bảo hành miễn phí trong 24h'} />
+         </Form.Item>
+         <Button type="primary" htmlType="submit" loading={loading}>
+           Lưu
+diff --git a/src/components/complaints/ComplaintTable.tsx b/src/components/complaints/ComplaintTable.tsx
+index d561d5b..ee12b9a 100644
+--- a/src/components/complaints/ComplaintTable.tsx
++++ b/src/components/complaints/ComplaintTable.tsx
+@@ -3,7 +3,7 @@ import type { TableProps } from 'antd'
+ import { EyeOutlined } from '@ant-design/icons'
+ import type { Paginated } from '../../api/users'
+ import type { ComplaintListParams, ComplaintRow } from '../../api/complaints'
+-import { COMPLAINT_STATUS, COMPLAINT_TYPE } from '../../constants/complaints'
++import { COMPLAINT_SOURCE, COMPLAINT_STATUS, COMPLAINT_TYPE, complaintTitle } from '../../constants/complaints'
+ import { formatDateTime } from '../../constants/order'
+ 
+ type Props = {
+@@ -16,12 +16,18 @@ type Props = {
+ 
+ export default function ComplaintTable({ data, loading, params, onPageChange, onView }: Props) {
+   const columns: TableProps<ComplaintRow>['columns'] = [
++    {
++      title: 'Người gửi',
++      dataIndex: 'source',
++      render: (s: ComplaintRow['source']) => <Tag color={COMPLAINT_SOURCE[s].color}>{COMPLAINT_SOURCE[s].label}</Tag>,
++    },
+     {
+       title: 'Loại',
+       dataIndex: 'type',
+-      render: (t: ComplaintRow['type']) => <Tag color={COMPLAINT_TYPE[t].color}>{COMPLAINT_TYPE[t].label}</Tag>,
++      render: (t: ComplaintRow['type'], c) =>
++        c.source === 'worker' ? <Tag>Sự cố đơn hàng</Tag> : <Tag color={COMPLAINT_TYPE[t].color}>{COMPLAINT_TYPE[t].label}</Tag>,
+     },
+-    { title: 'Tiêu đề', dataIndex: 'title', render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
++    { title: 'Tiêu đề', dataIndex: 'title', render: (v: string) => <Typography.Text strong>{complaintTitle(v)}</Typography.Text> },
+     { title: 'Mã đơn', dataIndex: 'order_code' },
+     { title: 'Khách hàng', dataIndex: 'customer_name' },
+     { title: 'Thợ', dataIndex: 'worker_name', render: (v: string | null) => v ?? '—' },
+diff --git a/src/components/dashboard/PendingTasks.tsx b/src/components/dashboard/PendingTasks.tsx
+new file mode 100644
+index 0000000..b540fd7
+--- /dev/null
++++ b/src/components/dashboard/PendingTasks.tsx
+@@ -0,0 +1,42 @@
++import { Card, Col, Row, Statistic, Typography } from 'antd'
++import { AlertOutlined, ClockCircleOutlined, IdcardOutlined, WalletOutlined } from '@ant-design/icons'
++import { useNavigate } from '@tanstack/react-router'
++import type { FileRouteTypes } from '../../routeTree.gen'
++import type { PendingCounts } from '../../api/dashboard'
++import { formatMoney } from '../../constants/order'
++
++/** Việc cần admin xử lý — phát sinh từ app thợ (hồ sơ, rút tiền, báo cáo sự cố) và app khách (khiếu nại) */
++export default function PendingTasks({ pending }: { pending: PendingCounts }) {
++  const navigate = useNavigate()
++  const items: { title: string; value: number; icon: React.ReactNode; to: FileRouteTypes['to']; sub?: string }[] = [
++    { title: 'Hồ sơ thợ cần duyệt', value: pending.workers_to_review, icon: <IdcardOutlined />, to: '/workers' },
++    {
++      title: 'Lệnh rút tiền chờ duyệt',
++      value: pending.withdrawals_pending,
++      icon: <WalletOutlined />,
++      to: '/withdrawals',
++      sub: pending.withdrawals_pending ? formatMoney(pending.withdrawals_pending_amount) : undefined,
++    },
++    { title: 'Báo cáo sự cố của thợ', value: pending.reports_open, icon: <AlertOutlined />, to: '/complaints' },
++    { title: 'Đơn đang tìm thợ', value: pending.orders_matching, icon: <ClockCircleOutlined />, to: '/monitor',
++      sub: pending.orders_waiting_long ? `${pending.orders_waiting_long} đơn chờ quá 5 phút` : undefined },
++  ]
++
++  return (
++    <Row gutter={[16, 16]}>
++      {items.map((it) => (
++        <Col key={it.title} xs={24} sm={12} xl={6}>
++          <Card hoverable size="small" onClick={() => navigate({ to: it.to })}>
++            <Statistic
++              title={it.title}
++              value={it.value}
++              prefix={it.icon}
++              styles={it.value > 0 ? { content: { color: '#d4380d' } } : undefined}
++            />
++            <Typography.Text type="secondary">{it.sub ?? (it.value ? 'Bấm để xử lý' : 'Không có việc tồn đọng')}</Typography.Text>
++          </Card>
++        </Col>
++      ))}
++    </Row>
++  )
++}
+diff --git a/src/components/layout/AppHeader.tsx b/src/components/layout/AppHeader.tsx
+index aad5a54..230e14c 100644
+--- a/src/components/layout/AppHeader.tsx
++++ b/src/components/layout/AppHeader.tsx
+@@ -3,6 +3,7 @@ import type { MenuProps } from 'antd'
+ import { LogoutOutlined, UserOutlined } from '@ant-design/icons'
+ import { getRouteApi, useNavigate } from '@tanstack/react-router'
+ import { logout } from '../../api/auth'
++import NotificationBell from './NotificationBell'
+ 
+ const adminRoute = getRouteApi('/_admin')
+ 
+@@ -24,7 +25,8 @@ export default function AppHeader() {
+ 
+   return (
+     <Layout.Header style={{ background: token.colorBgContainer, paddingInline: 24 }}>
+-      <Flex justify="end" align="center" style={{ height: '100%' }}>
++      <Flex justify="end" align="center" gap={16} style={{ height: '100%' }}>
++        <NotificationBell />
+         <Dropdown menu={{ items: menuItems }} trigger={['click']}>
+           <Flex gap={8} align="center" style={{ cursor: 'pointer' }}>
+             <Avatar src={user.avatar_url ?? undefined} icon={<UserOutlined />} />
+diff --git a/src/components/layout/AppSidebar.tsx b/src/components/layout/AppSidebar.tsx
+index 4364619..456bb3e 100644
+--- a/src/components/layout/AppSidebar.tsx
++++ b/src/components/layout/AppSidebar.tsx
+@@ -1,6 +1,6 @@
+ import { Flex, Layout, Menu, MenuProps, Typography } from "antd";
+ import { FileRouteTypes } from "../../routeTree.gen";
+-import { AppstoreOutlined, BarChartOutlined, DashboardOutlined, FileTextOutlined, NodeIndexOutlined, ToolOutlined, UserOutlined, WarningOutlined } from "@ant-design/icons";
++import { AppstoreOutlined, BarChartOutlined, DashboardOutlined, EnvironmentOutlined, FileTextOutlined, NodeIndexOutlined, ToolOutlined, UserOutlined, WalletOutlined, WarningOutlined } from "@ant-design/icons";
+ import { useState } from "react";
+ import { useNavigate, useRouterState } from "@tanstack/react-router";
+ 
+@@ -8,10 +8,12 @@ type MenuItem = Required<MenuProps>['items'][number] & {key:FileRouteTypes['to']
+ 
+ const items: MenuItem[] = [
+   { key: '/', icon: <DashboardOutlined />, label: 'Tổng quan' },
++  { key: '/monitor', icon: <EnvironmentOutlined />, label: 'Bản đồ giám sát' },
+   { key: '/users', icon: <UserOutlined />, label: 'Khách hàng' },
+   { key: '/workers', icon: <ToolOutlined />, label: 'Thợ' },
+   { key: '/services', icon: <AppstoreOutlined />, label: 'Dịch vụ' },
+   { key: '/orders', icon: <FileTextOutlined />, label: 'Đơn hàng' },
++  { key: '/withdrawals', icon: <WalletOutlined />, label: 'Rút tiền' },
+   { key: '/complaints', icon: <WarningOutlined />, label: 'Khiếu nại' },
+   { key: '/reports', icon: <BarChartOutlined />, label: 'Thống kê' },
+   { key: '/matching', icon: <NodeIndexOutlined />, label: 'Ghép cặp' },
+diff --git a/src/components/layout/NotificationBell.tsx b/src/components/layout/NotificationBell.tsx
+new file mode 100644
+index 0000000..21f2a81
+--- /dev/null
++++ b/src/components/layout/NotificationBell.tsx
+@@ -0,0 +1,131 @@
++import { useCallback, useEffect, useState } from 'react'
++import { Badge, Button, Divider, Empty, Flex, Popover, Space, Typography } from 'antd'
++import { BellOutlined } from '@ant-design/icons'
++import { useNavigate } from '@tanstack/react-router'
++import type { FileRouteTypes } from '../../routeTree.gen'
++import { getPending } from '../../api/dashboard'
++import type { PendingCounts } from '../../api/dashboard'
++import { listNotifications, markAllNotificationsRead, markNotificationRead } from '../../api/notifications'
++import type { AdminNotification } from '../../api/notifications'
++import { formatMoney } from '../../constants/order'
++import { ago } from '../../constants/monitor'
++
++const REFRESH_MS = 30_000
++
++type Todo = { key: string; label: string; count: number; to: FileRouteTypes['to'] }
++
++/** Chuông trên header: việc cần xử lý (đếm từ CSDL) + thông báo gửi cho admin (VD hồ sơ thợ chờ duyệt) */
++export default function NotificationBell() {
++  const navigate = useNavigate()
++  const [pending, setPending] = useState<PendingCounts>()
++  const [notes, setNotes] = useState<AdminNotification[]>([])
++  const [unread, setUnread] = useState(0)
++  const [open, setOpen] = useState(false)
++
++  const load = useCallback(async () => {
++    try {
++      const [p, n] = await Promise.all([getPending(), listNotifications({ pageSize: 8 })])
++      setPending(p)
++      setNotes(n.items)
++      setUnread(n.unread)
++    } catch {
++      // lỗi mạng tạm thời: giữ dữ liệu cũ, lần sau thử lại
++    }
++  }, [])
++
++  useEffect(() => {
++    load()
++    const t = setInterval(load, REFRESH_MS)
++    return () => clearInterval(t)
++  }, [load])
++
++  const todos: Todo[] = pending
++    ? ([
++        { key: 'w', label: 'Hồ sơ thợ cần duyệt', count: pending.workers_to_review, to: '/workers' },
++        {
++          key: 'wd',
++          label: `Lệnh rút tiền chờ duyệt${pending.withdrawals_pending ? ` (${formatMoney(pending.withdrawals_pending_amount)})` : ''}`,
++          count: pending.withdrawals_pending,
++          to: '/withdrawals',
++        },
++        { key: 'c', label: 'Khiếu nại của khách', count: pending.complaints_open, to: '/complaints' },
++        { key: 'r', label: 'Báo cáo sự cố của thợ', count: pending.reports_open, to: '/complaints' },
++        { key: 'm', label: 'Đơn chờ thợ quá 5 phút', count: pending.orders_waiting_long, to: '/monitor' },
++      ] as Todo[]).filter((t) => t.count > 0)
++    : []
++  const total = todos.reduce((s, t) => s + t.count, 0) + unread
++
++  const go = (to: FileRouteTypes['to']) => {
++    setOpen(false)
++    navigate({ to })
++  }
++
++  const openNote = async (n: AdminNotification) => {
++    if (!n.is_read) {
++      await markNotificationRead(n.id).catch(() => undefined)
++      load()
++    }
++    if (n.type === 'worker_verification') go('/workers')
++  }
++
++  const content = (
++    <Flex vertical style={{ width: 340 }}>
++      <Typography.Text strong>Việc cần xử lý</Typography.Text>
++      {todos.length === 0 ? (
++        <Typography.Text type="secondary">Không có việc tồn đọng</Typography.Text>
++      ) : (
++        <Flex vertical>
++          {todos.map((t) => (
++            <Button key={t.key} type="text" block onClick={() => go(t.to)} style={{ justifyContent: 'space-between', paddingInline: 4 }}>
++              <span>{t.label}</span>
++              <Badge count={t.count} />
++            </Button>
++          ))}
++        </Flex>
++      )}
++      <Divider style={{ margin: '8px 0' }} />
++      <Flex justify="space-between" align="center">
++        <Typography.Text strong>Thông báo</Typography.Text>
++        {unread > 0 && (
++          <Button size="small" type="link" onClick={() => markAllNotificationsRead().then(load)}>
++            Đánh dấu đã đọc
++          </Button>
++        )}
++      </Flex>
++      {notes.length === 0 ? (
++        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có thông báo" />
++      ) : (
++        <Flex vertical gap={4} style={{ maxHeight: 280, overflow: 'auto' }}>
++          {notes.map((n) => (
++            <Button
++              key={n.id}
++              type="text"
++              block
++              onClick={() => openNote(n)}
++              style={{ height: 'auto', paddingInline: 4, justifyContent: 'flex-start', textAlign: 'left', whiteSpace: 'normal' }}
++            >
++              <Flex vertical>
++                <Space size={6}>
++                  {!n.is_read && <Badge status="processing" />}
++                  <Typography.Text strong={!n.is_read}>{n.title}</Typography.Text>
++                </Space>
++                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
++                  {n.body ? `${n.body} · ` : ''}
++                  {ago(n.created_at)}
++                </Typography.Text>
++              </Flex>
++            </Button>
++          ))}
++        </Flex>
++      )}
++    </Flex>
++  )
++
++  return (
++    <Popover content={content} trigger="click" placement="bottomRight" open={open} onOpenChange={(v) => { setOpen(v); if (v) load() }}>
++      <Badge count={total} size="small" overflowCount={99}>
++        <Button type="text" shape="circle" icon={<BellOutlined style={{ fontSize: 18 }} />} />
++      </Badge>
++    </Popover>
++  )
++}
+diff --git a/src/components/map/LeafletMap.tsx b/src/components/map/LeafletMap.tsx
+new file mode 100644
+index 0000000..14decaa
+--- /dev/null
++++ b/src/components/map/LeafletMap.tsx
+@@ -0,0 +1,38 @@
++import { useEffect, useRef } from 'react'
++import L from 'leaflet'
++import 'leaflet/dist/leaflet.css'
++
++// Bản đồ miễn phí OpenStreetMap (cùng nguồn với app thợ), không cần API key
++const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
++const HANOI_CENTER: L.LatLngTuple = [21.0285, 105.8542]
++
++type Props = {
++  height: number | string
++  center?: L.LatLngTuple
++  zoom?: number
++  /** Gọi 1 lần khi bản đồ sẵn sàng; component cha tự vẽ lớp dữ liệu lên map */
++  onReady: (map: L.Map) => void
++}
++
++/** Khung bản đồ Leaflet dùng chung (bản đồ giám sát, vết di chuyển của thợ trong chi tiết đơn) */
++export default function LeafletMap({ height, center = HANOI_CENTER, zoom = 13, onReady }: Props) {
++  const el = useRef<HTMLDivElement>(null)
++  const ready = useRef(onReady)
++  ready.current = onReady
++
++  useEffect(() => {
++    if (!el.current) return
++    const map = L.map(el.current, { center, zoom, preferCanvas: true })
++    L.tileLayer(OSM_TILES, { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map)
++    ready.current(map)
++    // Drawer / layout đổi kích thước sau khi mount: tính lại khung để không bị ô xám
++    const ro = new ResizeObserver(() => map.invalidateSize())
++    ro.observe(el.current)
++    return () => {
++      ro.disconnect()
++      map.remove()
++    }
++  }, [])
++
++  return <div ref={el} style={{ height, width: '100%', borderRadius: 8, zIndex: 0 }} />
++}
+diff --git a/src/components/matching/ConfigFormModal.tsx b/src/components/matching/ConfigFormModal.tsx
+index 129bf66..4f198d2 100644
+--- a/src/components/matching/ConfigFormModal.tsx
++++ b/src/components/matching/ConfigFormModal.tsx
+@@ -1,8 +1,8 @@
+ import { useEffect } from 'react'
+-import { Alert, Button, Col, Divider, Form, Input, InputNumber, Modal, Progress, Row, Tooltip, Typography } from 'antd'
++import { Alert, Button, Col, Divider, Form, Input, InputNumber, Modal, Progress, Row, Segmented, Tooltip, Typography } from 'antd'
+ import { QuestionCircleOutlined } from '@ant-design/icons'
+ import type { MatchingConfig, MatchingConfigInput } from '../../api/matching'
+-import { WEIGHTS } from '../../constants/matching'
++import { MODES, WEIGHTS } from '../../constants/matching'
+ import WeightInput from './WeightInput'
+ 
+ export type FormMode = { type: 'create' } | { type: 'edit'; config: MatchingConfig } | { type: 'duplicate'; config: MatchingConfig }
+@@ -24,6 +24,8 @@ const DEFAULTS: MatchingConfigInput = {
+   max_radius_km: 10,
+   offer_timeout_seconds: 30,
+   batch_window_seconds: 10,
++  mode: 'auto',
++  max_offers: 1,
+ }
+ 
+ const TITLES = { create: 'Tạo bộ trọng số', edit: 'Sửa bộ trọng số', duplicate: 'Nhân bản bộ trọng số' }
+@@ -32,11 +34,17 @@ export default function ConfigFormModal({ mode, loading, onCancel, onSubmit }: P
+   const [form] = Form.useForm<MatchingConfigInput>()
+   const values = Form.useWatch([], form)
+   const sum = Math.round(WEIGHTS.reduce((s, w) => s + (values?.[w.key] ?? 0), 0) * 100)
++  const modeInfo = MODES.find((m) => m.value === (values?.mode ?? 'auto'))
+ 
+   useEffect(() => {
+     if (!mode) return
+     if (mode.type === 'create') form.setFieldsValue(DEFAULTS)
+-    else form.setFieldsValue({ ...mode.config, name: mode.type === 'duplicate' ? `${mode.config.name} (bản sao)` : mode.config.name })
++    else
++      form.setFieldsValue({
++        ...DEFAULTS,
++        ...mode.config,
++        name: mode.type === 'duplicate' ? `${mode.config.name} (bản sao)` : mode.config.name,
++      })
+   }, [mode, form])
+ 
+   const normalize = () => {
+@@ -99,6 +107,14 @@ export default function ConfigFormModal({ mode, loading, onCancel, onSubmit }: P
+           />
+         )}
+ 
++        <Divider titlePlacement="start" plain>
++          Chế độ ghép
++        </Divider>
++        <Form.Item name="mode">
++          <Segmented block options={MODES.map((m) => ({ value: m.value, label: m.label }))} />
++        </Form.Item>
++        {modeInfo && <Typography.Paragraph type="secondary">{modeInfo.help}</Typography.Paragraph>}
++
+         <Divider titlePlacement="start" plain>
+           Tham số
+         </Divider>
+@@ -115,12 +131,17 @@ export default function ConfigFormModal({ mode, loading, onCancel, onSubmit }: P
+           </Col>
+           <Col xs={24} sm={8}>
+             <Form.Item name="batch_window_seconds" label="Cửa sổ gom lô">
+-              <InputNumber min={5} max={120} suffix="giây" style={{ width: '100%' }} />
++              <InputNumber min={5} max={120} suffix="giây" style={{ width: '100%' }} disabled={values?.mode !== 'batch'} />
++            </Form.Item>
++          </Col>
++          <Col xs={24} sm={8}>
++            <Form.Item name="max_offers" label="Số thợ mời mỗi đợt (k)">
++              <InputNumber min={1} max={10} suffix="thợ" style={{ width: '100%' }} disabled={values?.mode === 'batch'} />
+             </Form.Item>
+           </Col>
+         </Row>
+         <Typography.Text type="secondary">
+-          Cửa sổ gom lô chỉ áp dụng cho chế độ theo lô: hệ thống gom các đơn trong khoảng thời gian này rồi ghép một lượt bằng thuật toán Hungarian.
++          Cửa sổ gom lô dùng cho chế độ theo lô; k dùng cho chế độ tức thời và các đơn được gửi ngay ở chế độ tự động.
+         </Typography.Text>
+       </Form>
+     </Modal>
+diff --git a/src/components/matching/ConfigTable.tsx b/src/components/matching/ConfigTable.tsx
+index edf91ad..2bd39e5 100644
+--- a/src/components/matching/ConfigTable.tsx
++++ b/src/components/matching/ConfigTable.tsx
+@@ -2,7 +2,7 @@ import { Button, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd
+ import type { TableProps } from 'antd'
+ import { CheckCircleOutlined, CopyOutlined, DeleteOutlined, EditOutlined, ExperimentOutlined } from '@ant-design/icons'
+ import type { MatchingConfig } from '../../api/matching'
+-import { WEIGHTS } from '../../constants/matching'
++import { MODES, WEIGHTS } from '../../constants/matching'
+ 
+ 
+ type Props = {
+@@ -48,6 +48,21 @@ export default function ConfigTable({ configs, loading, onActivate, onEdit, onDu
+         </Space>
+       ),
+     },
++    {
++      title: 'Chế độ',
++      dataIndex: 'mode',
++      render: (v: MatchingConfig['mode'], c) => {
++        const m = MODES.find((x) => x.value === v)
++        return (
++          <Tooltip title={m?.help}>
++            <Tag color={m?.color}>
++              {m?.label ?? v}
++              {v !== 'batch' && ` · k=${c.max_offers}`}
++            </Tag>
++          </Tooltip>
++        )
++      },
++    },
+     { title: 'Bán kính', dataIndex: 'max_radius_km', render: (v: number) => `${v} km` },
+     { title: 'Chờ nhận', dataIndex: 'offer_timeout_seconds', render: (v: number) => `${v}s` },
+     { title: 'Gom lô', dataIndex: 'batch_window_seconds', render: (v: number) => `${v}s` },
+diff --git a/src/components/matching/DispatchStatusCard.tsx b/src/components/matching/DispatchStatusCard.tsx
+new file mode 100644
+index 0000000..57d0ad0
+--- /dev/null
++++ b/src/components/matching/DispatchStatusCard.tsx
+@@ -0,0 +1,155 @@
++import { useCallback, useEffect, useState } from 'react'
++import { Alert, App, Badge, Card, Col, Descriptions, Flex, InputNumber, Popconfirm, Row, Segmented, Space, Statistic, Tag, Tooltip, Typography } from 'antd'
++import { SyncOutlined } from '@ant-design/icons'
++import { getDispatchStatus, setDispatchMode } from '../../api/dispatch'
++import type { DispatchStatus } from '../../api/dispatch'
++import type { MatchingMode } from '../../api/matching'
++import type { ApiError } from '../../api/client'
++import { MODES } from '../../constants/matching'
++import { formatDateTime } from '../../constants/order'
++
++const REFRESH_MS = 5000
++
++type Props = { onModeChanged?: () => void }
++
++/** Trạng thái bộ điều phối ghép cặp chạy nền trong backend (phần của thành viên B) + đổi nhanh chế độ ghép */
++export default function DispatchStatusCard({ onModeChanged }: Props) {
++  const { message } = App.useApp()
++  const [data, setData] = useState<DispatchStatus>()
++  const [error, setError] = useState<string>()
++  const [saving, setSaving] = useState(false)
++  const [pending, setPending] = useState<{ mode: MatchingMode; k: number } | null>(null)
++
++  const load = useCallback(async () => {
++    try {
++      setData(await getDispatchStatus())
++      setError(undefined)
++    } catch (e) {
++      setError((e as ApiError).message)
++    }
++  }, [])
++
++  useEffect(() => {
++    load()
++    const t = setInterval(load, REFRESH_MS)
++    return () => clearInterval(t)
++  }, [load])
++
++  const apply = async () => {
++    if (!pending) return
++    setSaving(true)
++    try {
++      const res = await setDispatchMode(pending.mode, pending.mode === 'batch' ? undefined : pending.k)
++      message.success(res.message)
++      setPending(null)
++      await load()
++      onModeChanged?.()
++    } catch (e) {
++      message.error((e as ApiError).message)
++    } finally {
++      setSaving(false)
++    }
++  }
++
++  const d = data?.dispatcher
++  const cfg = data?.config
++  const queued = data?.queue.reduce((s, q) => s + q.orders, 0) ?? 0
++  const lastTickAgo = d?.last_tick_at ? Math.round((Date.now() - new Date(d.last_tick_at).getTime()) / 1000) : null
++  const healthy = !!d?.enabled && d.leader && lastTickAgo !== null && lastTickAgo < 30
++  const shown = pending ?? (cfg ? { mode: cfg.mode, k: cfg.max_offers } : null)
++
++  return (
++    <Card
++      title={
++        <Space>
++          <span>Bộ điều phối ghép cặp</span>
++          {d && <Badge status={healthy ? 'processing' : 'error'} text={healthy ? 'Đang chạy' : 'Không hoạt động'} />}
++        </Space>
++      }
++      extra={
++        <Tooltip title={`Tự cập nhật mỗi ${REFRESH_MS / 1000} giây`}>
++          <SyncOutlined spin={!data && !error} style={{ color: '#999' }} />
++        </Tooltip>
++      }
++    >
++      {error && <Alert type="error" showIcon title="Không lấy được trạng thái bộ điều phối" description={error} style={{ marginBottom: 16 }} />}
++      {d?.last_error && (
++        <Alert
++          type="warning"
++          showIcon
++          style={{ marginBottom: 16 }}
++          title={`Lỗi gần nhất lúc ${formatDateTime(d.last_error.at)}`}
++          description={d.last_error.message}
++        />
++      )}
++      <Row gutter={[16, 16]}>
++        <Col xs={12} md={6}>
++          <Statistic title="Đơn đang chờ ghép" value={queued} />
++        </Col>
++        <Col xs={12} md={6}>
++          <Statistic title="Lời mời đang mở" value={data?.live_offers ?? 0} />
++        </Col>
++        <Col xs={12} md={6}>
++          <Statistic title="Lời mời đã gửi (từ lúc bật)" value={d?.offers_sent ?? 0} />
++        </Col>
++        <Col xs={12} md={6}>
++          <Statistic title="Số nhịp đã chạy" value={d?.ticks ?? 0} suffix={d ? <Typography.Text type="secondary">· {d.tick_seconds}s/nhịp</Typography.Text> : null} />
++        </Col>
++      </Row>
++
++      <Descriptions size="small" column={{ xs: 1, md: 2 }} style={{ marginTop: 16 }}>
++        <Descriptions.Item label="Cấu hình đang áp dụng">{cfg?.name ?? '—'}</Descriptions.Item>
++        <Descriptions.Item label="Nhịp gần nhất">{lastTickAgo === null ? '—' : `${lastTickAgo} giây trước`}</Descriptions.Item>
++        <Descriptions.Item label="Hàng đợi theo chế độ">
++          {data?.queue.length
++            ? data.queue.map((q) => (
++                <Tag key={q.mode}>
++                  {MODES.find((m) => m.value === q.mode)?.label ?? q.mode}: {q.orders} đơn
++                </Tag>
++              ))
++            : 'Trống'}
++        </Descriptions.Item>
++        <Descriptions.Item label="Ghép tự động gần nhất">
++          {d?.last_auto ? `${formatDateTime(d.last_auto.at)} · ${d.last_auto.orders} đơn` : '—'}
++        </Descriptions.Item>
++      </Descriptions>
++
++      {shown && cfg?.id && (
++        <Flex vertical gap={8} style={{ marginTop: 8 }}>
++          <Typography.Text strong>Đổi nhanh chế độ ghép (áp dụng cho cấu hình đang bật)</Typography.Text>
++          <Flex gap={12} wrap align="center">
++            <Segmented<MatchingMode>
++              value={shown.mode}
++              onChange={(mode) => setPending({ mode, k: shown.k })}
++              options={MODES.map((m) => ({ value: m.value, label: m.label }))}
++            />
++            <Space>
++              <Typography.Text type="secondary">k =</Typography.Text>
++              <InputNumber
++                min={1}
++                max={10}
++                value={shown.k}
++                disabled={shown.mode === 'batch'}
++                onChange={(k) => k && setPending({ mode: shown.mode, k })}
++                style={{ width: 72 }}
++              />
++            </Space>
++            {pending && (
++              <Popconfirm
++                title="Đổi chế độ ghép?"
++                description="Các đơn mới và đơn đang chờ sẽ được ghép theo chế độ này từ nhịp tiếp theo."
++                okText="Đổi"
++                cancelText="Hủy"
++                onConfirm={apply}
++                onCancel={() => setPending(null)}
++              >
++                <Typography.Link disabled={saving}>Áp dụng</Typography.Link>
++              </Popconfirm>
++            )}
++          </Flex>
++          <Typography.Text type="secondary">{MODES.find((m) => m.value === shown.mode)?.help}</Typography.Text>
++        </Flex>
++      )}
++    </Card>
++  )
++}
+diff --git a/src/components/monitor/SelectionCard.tsx b/src/components/monitor/SelectionCard.tsx
+new file mode 100644
+index 0000000..0b5172e
+--- /dev/null
++++ b/src/components/monitor/SelectionCard.tsx
+@@ -0,0 +1,95 @@
++import { Button, Card, Descriptions, Space, Tag, Typography } from 'antd'
++import { CloseOutlined, FileSearchOutlined, UserOutlined } from '@ant-design/icons'
++import type { MapOrder, MapWorker } from '../../api/monitor'
++import { ORDER_STATUS, formatDateTime, formatMoney } from '../../constants/order'
++import { WORKER_STATE, ago, workerStateOf } from '../../constants/monitor'
++
++type Props = {
++  order?: MapOrder
++  worker?: MapWorker
++  onClose: () => void
++  onOpenOrder: (id: string) => void
++  onOpenWorker: (id: string) => void
++}
++
++/** Thông tin đối tượng đang chọn trên bản đồ giám sát */
++export default function SelectionCard({ order, worker, onClose, onOpenOrder, onOpenWorker }: Props) {
++  if (!order && !worker) return null
++
++  if (order) {
++    return (
++      <Card
++        size="small"
++        title={`Đơn ${order.code}`}
++        extra={<Button size="small" type="text" icon={<CloseOutlined />} onClick={onClose} />}
++        actions={[
++          <Button key="o" type="link" icon={<FileSearchOutlined />} onClick={() => onOpenOrder(order.id)}>
++            Chi tiết đơn
++          </Button>,
++          ...(order.worker_id
++            ? [
++                <Button key="w" type="link" icon={<UserOutlined />} onClick={() => onOpenWorker(order.worker_id!)}>
++                  Hồ sơ thợ
++                </Button>,
++              ]
++            : []),
++        ]}
++      >
++        <Descriptions size="small" column={1}>
++          <Descriptions.Item label="Trạng thái">
++            <Tag color={ORDER_STATUS[order.status].color}>{ORDER_STATUS[order.status].label}</Tag>
++          </Descriptions.Item>
++          <Descriptions.Item label="Dịch vụ">{order.service_name}</Descriptions.Item>
++          <Descriptions.Item label="Khách">{order.customer_name}</Descriptions.Item>
++          <Descriptions.Item label="Địa chỉ">{order.address_text}</Descriptions.Item>
++          <Descriptions.Item label="Thợ">{order.worker_name ?? <Typography.Text type="secondary">Chưa có</Typography.Text>}</Descriptions.Item>
++          <Descriptions.Item label="Đặt lúc">{formatDateTime(order.created_at)} ({ago(order.created_at)})</Descriptions.Item>
++          {order.scheduled_at && <Descriptions.Item label="Hẹn lúc">{formatDateTime(order.scheduled_at)}</Descriptions.Item>}
++          <Descriptions.Item label="Giá">{formatMoney(order.price)}</Descriptions.Item>
++          {order.status === 'matching' && (
++            <Descriptions.Item label="Ghép cặp">
++              <Space size={4} wrap>
++                <Tag>Đợt {order.dispatch_rounds ?? 0}</Tag>
++                <Tag>{order.dispatch_offers ?? 0} lời mời đã gửi</Tag>
++                <Tag color={order.live_offers ? 'processing' : 'default'}>{order.live_offers} đang chờ thợ</Tag>
++                {order.dispatch_candidates !== null && <Tag>{order.dispatch_candidates} thợ phù hợp</Tag>}
++              </Space>
++            </Descriptions.Item>
++          )}
++        </Descriptions>
++      </Card>
++    )
++  }
++
++  const w = worker!
++  const st = WORKER_STATE[workerStateOf(w)]
++  return (
++    <Card
++      size="small"
++      title={w.full_name}
++      extra={<Button size="small" type="text" icon={<CloseOutlined />} onClick={onClose} />}
++      actions={[
++        <Button key="w" type="link" icon={<UserOutlined />} onClick={() => onOpenWorker(w.id)}>
++          Hồ sơ thợ
++        </Button>,
++      ]}
++    >
++      <Descriptions size="small" column={1}>
++        <Descriptions.Item label="Trạng thái">
++          <Space size={4} wrap>
++            <Tag color={st.color}>{st.label}</Tag>
++            {w.is_online && !w.location_fresh && <Tag color="red">Bật nhận đơn nhưng vị trí đã cũ — không được ghép</Tag>}
++          </Space>
++        </Descriptions.Item>
++        <Descriptions.Item label="SĐT">{w.phone ?? '—'}</Descriptions.Item>
++        <Descriptions.Item label="Đơn đang làm">{w.current_order_code ?? '—'}</Descriptions.Item>
++        <Descriptions.Item label="Vị trí cập nhật">{ago(w.location_updated_at)}</Descriptions.Item>
++        <Descriptions.Item label="Bán kính nhận việc">{w.service_radius_km} km</Descriptions.Item>
++        <Descriptions.Item label="Đánh giá">{w.rating_count ? `${w.rating_avg.toFixed(1)} ★ (${w.rating_count})` : 'Chưa có'}</Descriptions.Item>
++        <Descriptions.Item label="Nhóm dịch vụ">
++          {w.skills.length ? w.skills.map((s) => <Tag key={s}>{s}</Tag>) : '—'}
++        </Descriptions.Item>
++      </Descriptions>
++    </Card>
++  )
++}
+diff --git a/src/components/orders/OrderDetailDrawer.tsx b/src/components/orders/OrderDetailDrawer.tsx
+index 71f4471..d6c25dd 100644
+--- a/src/components/orders/OrderDetailDrawer.tsx
++++ b/src/components/orders/OrderDetailDrawer.tsx
+@@ -10,6 +10,9 @@ import {
+   MATCHING_MODE, ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS, QUOTE_STATUS, formatDateTime, formatMoney,
+ } from '../../constants/order'
+ import CancelOrderModal from './CancelOrderModal'
++import OrderMatchingCard from './OrderMatchingCard'
++import OrderPhotosCard from './OrderPhotosCard'
++import OrderTrailMap from './OrderTrailMap'
+ 
+ type Props = { orderId: string | null; onClose: () => void; onChanged: () => void }
+ 
+@@ -78,6 +81,7 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }: Props
+           <Space wrap>
+             <Tag color={ORDER_STATUS[o.status].color}>{ORDER_STATUS[o.status].label}</Tag>
+             <Tag>Ghép cặp: {MATCHING_MODE[o.matching_mode]}</Tag>
++            {o.safety_checked_at && <Tag color="green">Thợ đã kiểm tra an toàn điện lúc {formatDateTime(o.safety_checked_at)}</Tag>}
+           </Space>
+ 
+           {o.status === 'cancelled' && (
+@@ -97,8 +101,8 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }: Props
+             </Descriptions.Item>
+             <Descriptions.Item label="Địa chỉ">
+               {o.address_text}{' '}
+-              <Typography.Link href={`https://www.google.com/maps?q=${o.lat},${o.lng}`} target="_blank">
+-                Xem bản đồ
++              <Typography.Link href={`https://www.openstreetmap.org/?mlat=${o.lat}&mlon=${o.lng}#map=17/${o.lat}/${o.lng}`} target="_blank">
++                Mở bản đồ lớn
+               </Typography.Link>
+             </Descriptions.Item>
+             <Descriptions.Item label="Mô tả sự cố">{o.description ?? '—'}</Descriptions.Item>
+@@ -118,6 +122,12 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }: Props
+             </Card>
+           )}
+ 
++          <OrderTrailMap data={data} />
++
++          <OrderMatchingCard data={data} />
++
++          <OrderPhotosCard photos={data.photos} />
++
+           <Descriptions bordered size="small" column={1} title="Chi phí">
+             <Descriptions.Item label="Giá dự kiến">{formatMoney(o.estimated_price)}</Descriptions.Item>
+             <Descriptions.Item label="Phát sinh">{formatMoney(o.extra_amount)}</Descriptions.Item>
+diff --git a/src/components/orders/OrderMatchingCard.tsx b/src/components/orders/OrderMatchingCard.tsx
+new file mode 100644
+index 0000000..f9cc436
+--- /dev/null
++++ b/src/components/orders/OrderMatchingCard.tsx
+@@ -0,0 +1,54 @@
++import { Card, Descriptions, Empty, Table, Tag, Typography } from 'antd'
++import type { OrderDetail, OrderOffer } from '../../api/orders'
++import { MATCHING_MODE, OFFER_STATUS, formatDateTime } from '../../constants/order'
++import { MODES } from '../../constants/matching'
++
++const REASON: Record<string, string> = { closed: 'Đơn đã có thợ khác nhận / bị huỷ' }
++
++/** Lịch sử ghép cặp của đơn: bộ điều phối đã mời những thợ nào, điểm phù hợp, thợ trả lời ra sao */
++export default function OrderMatchingCard({ data }: { data: OrderDetail }) {
++  const { offers, dispatch } = data
++
++  return (
++    <Card size="small" title={`Ghép cặp (${offers.length} lời mời)`}>
++      {dispatch && (
++        <Descriptions size="small" column={{ xs: 1, md: 2 }} style={{ marginBottom: 12 }}>
++          <Descriptions.Item label="Chế độ hàng đợi">{MODES.find((m) => m.value === dispatch.mode)?.label ?? dispatch.mode}</Descriptions.Item>
++          <Descriptions.Item label="Số đợt đã gửi">{dispatch.rounds}</Descriptions.Item>
++          <Descriptions.Item label="Thợ phù hợp lần gần nhất">{dispatch.last_candidates ?? '—'}</Descriptions.Item>
++          <Descriptions.Item label="Hệ thống huỷ nếu chưa có thợ lúc">{formatDateTime(dispatch.deadline_at)}</Descriptions.Item>
++        </Descriptions>
++      )}
++      {offers.length === 0 ? (
++        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa gửi lời mời cho thợ nào" />
++      ) : (
++        <Table<OrderOffer>
++          rowKey="id"
++          size="small"
++          pagination={false}
++          dataSource={offers}
++          scroll={{ x: 'max-content' }}
++          columns={[
++            { title: 'Đợt', dataIndex: 'round', render: (v: number, f) => `${v}${f.rank_position ? ` · #${f.rank_position}` : ''}` },
++            { title: 'Thợ', dataIndex: 'worker_name' },
++            { title: 'Cách', dataIndex: 'distance_km', align: 'right', render: (v: number | null) => (v == null ? '—' : `${v.toFixed(1)} km`) },
++            { title: 'Điểm', dataIndex: 'score', align: 'right', render: (v: number) => v.toFixed(3) },
++            { title: 'Thuật toán', dataIndex: 'mode', render: (m: OrderOffer['mode']) => (m === 'batch' ? 'Hungarian' : 'Greedy') + ` (${MATCHING_MODE[m]})` },
++            {
++              title: 'Kết quả',
++              dataIndex: 'status',
++              render: (s: OrderOffer['status'], f) => (
++                <>
++                  <Tag color={OFFER_STATUS[s]?.color}>{OFFER_STATUS[s]?.label ?? s}</Tag>
++                  {f.reason && <Typography.Text type="secondary">{REASON[f.reason] ?? f.reason}</Typography.Text>}
++                </>
++              ),
++            },
++            { title: 'Mời lúc', dataIndex: 'offered_at', render: formatDateTime },
++            { title: 'Trả lời lúc', dataIndex: 'responded_at', render: formatDateTime },
++          ]}
++        />
++      )}
++    </Card>
++  )
++}
+diff --git a/src/components/orders/OrderPhotosCard.tsx b/src/components/orders/OrderPhotosCard.tsx
+new file mode 100644
+index 0000000..99712e7
+--- /dev/null
++++ b/src/components/orders/OrderPhotosCard.tsx
+@@ -0,0 +1,44 @@
++import { Card, Col, Empty, Image, Row, Space, Typography } from 'antd'
++import type { OrderDetail } from '../../api/orders'
++
++/** Ảnh thợ chụp trên app thợ trước và sau khi sửa (bằng chứng khi khách khiếu nại) */
++export default function OrderPhotosCard({ photos }: { photos: OrderDetail['photos'] }) {
++  const groups = [
++    { kind: 'before' as const, title: 'Trước khi sửa' },
++    { kind: 'after' as const, title: 'Sau khi sửa' },
++  ]
++
++  return (
++    <Card size="small" title="Ảnh thợ chụp khi làm">
++      {photos.length === 0 ? (
++        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Thợ chưa chụp ảnh" />
++      ) : (
++        <Image.PreviewGroup>
++          <Row gutter={[16, 12]}>
++            {groups.map((g) => {
++              const list = photos.filter((p) => p.kind === g.kind)
++              return (
++                <Col key={g.kind} xs={24} md={12}>
++                  <Typography.Text strong>
++                    {g.title} ({list.length})
++                  </Typography.Text>
++                  <div style={{ marginTop: 8 }}>
++                    {list.length ? (
++                      <Space wrap>
++                        {list.map((p) => (
++                          <Image key={p.id} src={p.url} width={90} height={90} style={{ objectFit: 'cover' }} />
++                        ))}
++                      </Space>
++                    ) : (
++                      <Typography.Text type="secondary">Không có</Typography.Text>
++                    )}
++                  </div>
++                </Col>
++              )
++            })}
++          </Row>
++        </Image.PreviewGroup>
++      )}
++    </Card>
++  )
++}
+diff --git a/src/components/orders/OrderTrailMap.tsx b/src/components/orders/OrderTrailMap.tsx
+new file mode 100644
+index 0000000..a7c9782
+--- /dev/null
++++ b/src/components/orders/OrderTrailMap.tsx
+@@ -0,0 +1,45 @@
++import { useCallback } from 'react'
++import L from 'leaflet'
++import { Card, Typography } from 'antd'
++import type { OrderDetail } from '../../api/orders'
++import LeafletMap from '../map/LeafletMap'
++import { formatDateTime } from '../../constants/order'
++
++/** Vị trí đơn + vết di chuyển của thợ (app thợ gửi khi đang làm đơn) — phục vụ xử lý tranh chấp */
++export default function OrderTrailMap({ data }: { data: OrderDetail }) {
++  const { order, trail } = data
++
++  const onReady = useCallback(
++    (map: L.Map) => {
++      const dest: L.LatLngTuple = [order.lat, order.lng]
++      L.circleMarker(dest, { radius: 9, color: '#d4380d', weight: 4, fillColor: '#fff', fillOpacity: 1 })
++        .bindTooltip('Địa chỉ khách')
++        .addTo(map)
++      if (trail.length) {
++        const pts = trail.map((p) => [p.lat, p.lng] as L.LatLngTuple)
++        L.polyline(pts, { color: '#1677ff', weight: 4, opacity: 0.8 }).addTo(map)
++        L.circleMarker(pts[0], { radius: 6, color: '#fff', weight: 2, fillColor: '#8c8c8c', fillOpacity: 1 })
++          .bindTooltip(`Bắt đầu ${formatDateTime(trail[0].recorded_at)}`)
++          .addTo(map)
++        L.circleMarker(pts[pts.length - 1], { radius: 7, color: '#fff', weight: 2, fillColor: '#1677ff', fillOpacity: 1 })
++          .bindTooltip(`Vị trí cuối ${formatDateTime(trail[trail.length - 1].recorded_at)}`)
++          .addTo(map)
++        map.fitBounds(L.latLngBounds([...pts, dest]), { padding: [24, 24], maxZoom: 16 })
++      } else {
++        map.setView(dest, 15)
++      }
++    },
++    [order.lat, order.lng, trail],
++  )
++
++  return (
++    <Card size="small" title="Bản đồ & vết di chuyển của thợ">
++      <LeafletMap key={`${order.id}-${trail.length}`} height={260} onReady={onReady} />
++      <Typography.Text type="secondary">
++        {trail.length
++          ? `${trail.length} điểm vị trí từ ${formatDateTime(trail[0].recorded_at)} đến ${formatDateTime(trail[trail.length - 1].recorded_at)}`
++          : 'Chưa có vết di chuyển (thợ chưa xuất phát hoặc app thợ chưa gửi vị trí).'}
++      </Typography.Text>
++    </Card>
++  )
++}
+diff --git a/src/components/withdrawals/RejectWithdrawalModal.tsx b/src/components/withdrawals/RejectWithdrawalModal.tsx
+new file mode 100644
+index 0000000..092d1bc
+--- /dev/null
++++ b/src/components/withdrawals/RejectWithdrawalModal.tsx
+@@ -0,0 +1,46 @@
++import { Form, Input, Modal, Typography } from 'antd'
++import type { Withdrawal } from '../../api/withdrawals'
++import { formatMoney } from '../../constants/order'
++
++type Props = {
++  withdrawal: Withdrawal | null
++  loading: boolean
++  onCancel: () => void
++  onSubmit: (note: string) => void
++}
++
++export default function RejectWithdrawalModal({ withdrawal, loading, onCancel, onSubmit }: Props) {
++  const [form] = Form.useForm<{ note: string }>()
++
++  return (
++    <Modal
++      title="Từ chối lệnh rút tiền"
++      open={!!withdrawal}
++      okText="Từ chối & hoàn tiền"
++      okButtonProps={{ danger: true, loading }}
++      cancelText="Hủy"
++      onCancel={onCancel}
++      onOk={() => form.submit()}
++      afterClose={() => form.resetFields()}
++      destroyOnHidden
++    >
++      {withdrawal && (
++        <Typography.Paragraph>
++          {formatMoney(withdrawal.amount)} sẽ được hoàn lại vào ví của <b>{withdrawal.worker_name}</b>. Thợ nhận được thông báo kèm lý do.
++        </Typography.Paragraph>
++      )}
++      <Form form={form} layout="vertical" onFinish={(v) => onSubmit(v.note.trim())}>
++        <Form.Item
++          name="note"
++          label="Lý do (thợ sẽ nhìn thấy)"
++          rules={[
++            { required: true, whitespace: true, message: 'Vui lòng nhập lý do' },
++            { max: 500, message: 'Tối đa 500 ký tự' },
++          ]}
++        >
++          <Input.TextArea rows={3} placeholder="VD: Tên chủ tài khoản không khớp với họ tên thợ" />
++        </Form.Item>
++      </Form>
++    </Modal>
++  )
++}
+diff --git a/src/components/withdrawals/WithdrawalTable.tsx b/src/components/withdrawals/WithdrawalTable.tsx
+new file mode 100644
+index 0000000..e56efc0
+--- /dev/null
++++ b/src/components/withdrawals/WithdrawalTable.tsx
+@@ -0,0 +1,105 @@
++import { Button, Popconfirm, Space, Table, Tag, Typography } from 'antd'
++import type { TableProps } from 'antd'
++import { CheckOutlined, CloseOutlined } from '@ant-design/icons'
++import type { Paginated } from '../../api/users'
++import type { Withdrawal, WithdrawalListParams } from '../../api/withdrawals'
++import { WITHDRAWAL_STATUS } from '../../constants/withdrawal'
++import { formatDateTime, formatMoney } from '../../constants/order'
++
++type Props = {
++  data?: Paginated<Withdrawal>
++  loading: boolean
++  params: WithdrawalListParams
++  busyId: number | null
++  onPageChange: (next: Partial<WithdrawalListParams>) => void
++  onApprove: (w: Withdrawal) => void
++  onReject: (w: Withdrawal) => void
++}
++
++export default function WithdrawalTable({ data, loading, params, busyId, onPageChange, onApprove, onReject }: Props) {
++  const columns: TableProps<Withdrawal>['columns'] = [
++    { title: 'Mã', dataIndex: 'id', render: (v: number) => `#${v}` },
++    {
++      title: 'Thợ',
++      dataIndex: 'worker_name',
++      render: (_, w) => (
++        <Space orientation="vertical" size={0}>
++          <Typography.Text strong>{w.worker_name}</Typography.Text>
++          <Typography.Text type="secondary">{w.worker_phone ?? '—'}</Typography.Text>
++        </Space>
++      ),
++    },
++    {
++      title: 'Số tiền',
++      dataIndex: 'amount',
++      align: 'right',
++      render: (v: number) => <Typography.Text strong>{formatMoney(v)}</Typography.Text>,
++    },
++    {
++      title: 'Tài khoản nhận',
++      key: 'bank',
++      render: (_, w) => (
++        <Space orientation="vertical" size={0}>
++          <span>{w.bank_name}</span>
++          <Typography.Text copyable={{ text: w.account_number }}>{w.account_number}</Typography.Text>
++          <Typography.Text type="secondary">{w.account_holder}</Typography.Text>
++        </Space>
++      ),
++    },
++    { title: 'Yêu cầu lúc', dataIndex: 'created_at', render: formatDateTime },
++    {
++      title: 'Trạng thái',
++      dataIndex: 'status',
++      render: (s: Withdrawal['status'], w) => (
++        <Space orientation="vertical" size={0}>
++          <Tag color={WITHDRAWAL_STATUS[s].color}>{WITHDRAWAL_STATUS[s].label}</Tag>
++          {w.processed_at && <Typography.Text type="secondary">{formatDateTime(w.processed_at)}</Typography.Text>}
++          {w.transaction_code && <Typography.Text type="secondary">Mã GD: {w.transaction_code}</Typography.Text>}
++          {w.note && <Typography.Text type="secondary">{w.note}</Typography.Text>}
++        </Space>
++      ),
++    },
++    {
++      title: 'Thao tác',
++      key: 'action',
++      render: (_, w) =>
++        w.status === 'pending' ? (
++          <Space>
++            <Popconfirm
++              title="Xác nhận đã chuyển khoản?"
++              description={`${formatMoney(w.amount)} tới ${w.bank_name} ${w.account_number}`}
++              okText="Đã chuyển"
++              cancelText="Hủy"
++              onConfirm={() => onApprove(w)}
++            >
++              <Button size="small" type="primary" icon={<CheckOutlined />} loading={busyId === w.id}>
++                Duyệt
++              </Button>
++            </Popconfirm>
++            <Button size="small" danger icon={<CloseOutlined />} onClick={() => onReject(w)}>
++              Từ chối
++            </Button>
++          </Space>
++        ) : null,
++    },
++  ]
++
++  return (
++    <Table
++      rowKey="id"
++      columns={columns}
++      dataSource={data?.items}
++      loading={loading}
++      scroll={{ x: 'max-content' }}
++      locale={{ emptyText: params.status === 'pending' ? 'Không có lệnh rút nào đang chờ' : 'Chưa có lệnh rút tiền' }}
++      pagination={{
++        current: params.page,
++        pageSize: params.pageSize,
++        total: data?.total,
++        showSizeChanger: true,
++        showTotal: (total) => `Tổng ${total} lệnh rút`,
++        onChange: (page, pageSize) => onPageChange({ page, pageSize }),
++      }}
++    />
++  )
++}
+diff --git a/src/components/workers/DocumentReview.tsx b/src/components/workers/DocumentReview.tsx
+new file mode 100644
+index 0000000..a520b21
+--- /dev/null
++++ b/src/components/workers/DocumentReview.tsx
+@@ -0,0 +1,163 @@
++import { useState } from 'react'
++import { App, Button, Card, Col, Empty, Flex, Form, Image, Input, Modal, Row, Space, Tag, Tooltip, Typography } from 'antd'
++import { CheckOutlined, CloseOutlined, HistoryOutlined } from '@ant-design/icons'
++import { reviewDocument } from '../../api/workers'
++import type { DocumentType, WorkerDocument } from '../../api/workers'
++import type { ApiError } from '../../api/client'
++import { DOCUMENT_TYPE, DOC_REJECT_REASONS, REQUIRED_DOCS, VERIFICATION } from '../../constants/worker'
++import { formatDateTime } from '../../constants/order'
++
++type Props = {
++  workerId: string
++  documents: WorkerDocument[]
++  /** Thợ đã được duyệt: kết quả từng giấy được báo ngay cho thợ */
++  workerApproved: boolean
++  onChanged: () => void
++}
++
++const ORDER: DocumentType[] = ['id_card_front', 'id_card_back', 'portrait', 'certificate', 'other']
++
++/**
++ * Duyệt từng giấy tờ. Từ chối giấy nào thì ghi lý do cho đúng giấy đó (worker_documents.reject_reason):
++ * app thợ hiện lý do theo từng giấy và thợ chỉ phải tải lại giấy bị từ chối.
++ */
++export default function DocumentReview({ workerId, documents, workerApproved, onChanged }: Props) {
++  const { message } = App.useApp()
++  const [busyId, setBusyId] = useState<string | null>(null)
++  const [rejecting, setRejecting] = useState<WorkerDocument | null>(null)
++  const [form] = Form.useForm<{ reason: string }>()
++
++  const submit = async (doc: WorkerDocument, status: 'approved' | 'rejected', reason?: string) => {
++    setBusyId(doc.id)
++    try {
++      const res = await reviewDocument(workerId, doc.id, status, reason)
++      message.success(res.message)
++      setRejecting(null)
++      onChanged()
++    } catch (e) {
++      message.error((e as ApiError).message)
++    } finally {
++      setBusyId(null)
++    }
++  }
++
++  const groups = ORDER.map((type) => ({ type, docs: documents.filter((d) => d.doc_type === type) })).filter(
++    (g) => g.docs.length || REQUIRED_DOCS.includes(g.type),
++  )
++
++  return (
++    <Card
++      size="small"
++      title="Giấy tờ xác minh"
++      extra={
++        <Typography.Text type="secondary">
++          {workerApproved ? 'Kết quả từng giấy được báo ngay cho thợ' : 'Thợ được báo khi bạn chốt cả hồ sơ'}
++        </Typography.Text>
++      }
++    >
++      <Image.PreviewGroup>
++        <Flex vertical gap={16}>
++          {groups.map(({ type, docs }) => {
++            const current = docs.filter((d) => d.is_current)
++            const older = docs.filter((d) => !d.is_current)
++            return (
++              <Flex key={type} vertical gap={8}>
++                <Space>
++                  <Typography.Text strong>{DOCUMENT_TYPE[type]}</Typography.Text>
++                  {REQUIRED_DOCS.includes(type) ? <Tag>Bắt buộc</Tag> : <Tag color="default">Không bắt buộc</Tag>}
++                </Space>
++                {docs.length === 0 ? (
++                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Thợ chưa tải lên" style={{ margin: 0 }} />
++                ) : (
++                  <Row gutter={[12, 12]}>
++                    {[...current, ...older].map((d) => (
++                      <Col key={d.id} xs={24} sm={12}>
++                        <Card size="small" styles={{ body: { padding: 8 } }} style={d.is_current ? undefined : { opacity: 0.65 }}>
++                          <Flex gap={12}>
++                            <Image src={d.file_url} width={120} height={90} style={{ objectFit: 'cover', borderRadius: 4 }} />
++                            <Flex vertical gap={4} style={{ minWidth: 0, flex: 1 }}>
++                              <Space size={4} wrap>
++                                <Tag color={VERIFICATION[d.status].color}>{VERIFICATION[d.status].label}</Tag>
++                                {!d.is_current && (
++                                  <Tooltip title="Thợ đã gửi bản mới hơn">
++                                    <Tag icon={<HistoryOutlined />}>Bản cũ</Tag>
++                                  </Tooltip>
++                                )}
++                              </Space>
++                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
++                                Gửi {formatDateTime(d.created_at)}
++                              </Typography.Text>
++                              {d.reviewed_at && (
++                                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
++                                  Duyệt {formatDateTime(d.reviewed_at)}
++                                  {d.reviewed_by_name && ` · ${d.reviewed_by_name}`}
++                                </Typography.Text>
++                              )}
++                              {d.status === 'rejected' && d.reject_reason && (
++                                <Typography.Text type="danger" style={{ fontSize: 12 }}>
++                                  Lý do: {d.reject_reason}
++                                </Typography.Text>
++                              )}
++                              {d.status === 'pending' && (
++                                <Space size={4} style={{ marginTop: 'auto' }}>
++                                  <Button
++                                    size="small"
++                                    type="primary"
++                                    icon={<CheckOutlined />}
++                                    loading={busyId === d.id}
++                                    onClick={() => submit(d, 'approved')}
++                                  >
++                                    Hợp lệ
++                                  </Button>
++                                  <Button size="small" danger icon={<CloseOutlined />} onClick={() => setRejecting(d)}>
++                                    Từ chối
++                                  </Button>
++                                </Space>
++                              )}
++                            </Flex>
++                          </Flex>
++                        </Card>
++                      </Col>
++                    ))}
++                  </Row>
++                )}
++              </Flex>
++            )
++          })}
++        </Flex>
++      </Image.PreviewGroup>
++
++      <Modal
++        title={rejecting ? `Từ chối ${DOCUMENT_TYPE[rejecting.doc_type]}` : ''}
++        open={!!rejecting}
++        okText="Từ chối giấy này"
++        okButtonProps={{ danger: true, loading: !!rejecting && busyId === rejecting.id }}
++        cancelText="Hủy"
++        onCancel={() => setRejecting(null)}
++        onOk={() => form.submit()}
++        afterClose={() => form.resetFields()}
++        destroyOnHidden
++      >
++        <Form form={form} layout="vertical" onFinish={(v) => rejecting && submit(rejecting, 'rejected', v.reason.trim())}>
++          <Form.Item
++            name="reason"
++            label="Lý do (thợ sẽ thấy ngay dưới giấy này trên app thợ)"
++            rules={[
++              { required: true, whitespace: true, message: 'Vui lòng nhập lý do' },
++              { max: 500, message: 'Tối đa 500 ký tự' },
++            ]}
++          >
++            <Input.TextArea rows={3} placeholder="VD: Ảnh bị mờ, vui lòng chụp lại" />
++          </Form.Item>
++          <Space size={[4, 4]} wrap>
++            {DOC_REJECT_REASONS.map((r) => (
++              <Tag key={r} style={{ cursor: 'pointer' }} onClick={() => form.setFieldValue('reason', r)}>
++                {r}
++              </Tag>
++            ))}
++          </Space>
++        </Form>
++      </Modal>
++    </Card>
++  )
++}
+diff --git a/src/components/workers/RejectWorkerModal.tsx b/src/components/workers/RejectWorkerModal.tsx
+index f30a386..cbecda0 100644
+--- a/src/components/workers/RejectWorkerModal.tsx
++++ b/src/components/workers/RejectWorkerModal.tsx
+@@ -1,15 +1,22 @@
+-import { Form, Input, Modal } from 'antd'
++import { useEffect } from 'react'
++import { Alert, Form, Input, Modal } from 'antd'
+ 
+ type Props = {
+   open: boolean
+   loading: boolean
++  /** Gợi ý sẵn lý do từ các giấy tờ đã bị từ chối */
++  initialNote?: string
+   onCancel: () => void
+   onSubmit: (note: string) => void
+ }
+ 
+-export default function RejectWorkerModal({ open, loading, onCancel, onSubmit }: Props) {
++export default function RejectWorkerModal({ open, loading, initialNote, onCancel, onSubmit }: Props) {
+   const [form] = Form.useForm<{ note: string }>()
+ 
++  useEffect(() => {
++    if (open) form.setFieldsValue({ note: initialNote ?? '' })
++  }, [open, initialNote, form])
++
+   return (
+     <Modal
+       title="Từ chối hồ sơ thợ"
+@@ -22,7 +29,14 @@ export default function RejectWorkerModal({ open, loading, onCancel, onSubmit }:
+       afterClose={() => form.resetFields()}
+       destroyOnHidden
+     >
+-      <Form form={form} layout="vertical" onFinish={(v) => onSubmit(v.note)}>
++      <Alert
++        type="info"
++        showIcon
++        style={{ marginBottom: 16 }}
++        title="Giấy tờ hợp lệ được giữ nguyên"
++        description="Muốn thợ tải lại giấy nào, hãy bấm “Từ chối” ở đúng giấy đó trước. Thợ sửa xong có thể gửi lại hồ sơ ngay trên app."
++      />
++      <Form form={form} layout="vertical" onFinish={(v) => onSubmit(v.note.trim())}>
+         <Form.Item
+           name="note"
+           label="Lý do từ chối (thợ sẽ nhìn thấy)"
+@@ -33,4 +47,4 @@ export default function RejectWorkerModal({ open, loading, onCancel, onSubmit }:
+       </Form>
+     </Modal>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/src/components/workers/VerificationTag.tsx b/src/components/workers/VerificationTag.tsx
+new file mode 100644
+index 0000000..04296ff
+--- /dev/null
++++ b/src/components/workers/VerificationTag.tsx
+@@ -0,0 +1,22 @@
++import { Space, Tag, Tooltip } from 'antd'
++import type { WorkerRow } from '../../api/workers'
++import { VERIFICATION } from '../../constants/worker'
++
++/** Trạng thái hồ sơ, tách rõ "đang điền dở" (chưa bấm gửi) với "chờ duyệt" (đã gửi) */
++export default function VerificationTag({ w }: { w: Pick<WorkerRow, 'verification_status' | 'submitted_at'> & { pending_docs?: number } }) {
++  if (w.verification_status === 'pending' && !w.submitted_at) {
++    return (
++      <Tooltip title="Thợ chưa bấm “Gửi hồ sơ” trên app thợ">
++        <Tag>Đang hoàn thiện</Tag>
++      </Tooltip>
++    )
++  }
++  return (
++    <Space size={4} wrap>
++      <Tag color={VERIFICATION[w.verification_status].color}>{VERIFICATION[w.verification_status].label}</Tag>
++      {w.verification_status === 'approved' && !!w.pending_docs && (
++        <Tag color="warning">{w.pending_docs} giấy tờ mới</Tag>
++      )}
++    </Space>
++  )
++}
+diff --git a/src/components/workers/WorkerDetailDrawer.tsx b/src/components/workers/WorkerDetailDrawer.tsx
+index 23a5a35..1bcfb00 100644
+--- a/src/components/workers/WorkerDetailDrawer.tsx
++++ b/src/components/workers/WorkerDetailDrawer.tsx
+@@ -1,19 +1,21 @@
+ import { useCallback, useEffect, useState } from 'react'
+ import {
+-  Alert, App, Avatar, Button, Card, Col, Descriptions, Drawer, Empty, Flex, Image, Rate, Row,
+-  Skeleton, Space, Statistic, Tag, Typography,
++  Alert, App, Avatar, Button, Card, Col, Descriptions, Drawer, Empty, Flex, Popconfirm, Rate, Row,
++  Skeleton, Space, Statistic, Tag, Tooltip, Typography,
+ } from 'antd'
+ import { CheckOutlined, CloseOutlined, UserOutlined } from '@ant-design/icons'
+ import { getWorkerDetail, reviewWorker } from '../../api/workers'
+ import type { WorkerDetail } from '../../api/workers'
+ import type { ApiError } from '../../api/client'
+ import { USER_STATUS } from '../../constants/user'
+-import { DOCUMENT_TYPE, VERIFICATION } from '../../constants/worker'
++import { DOCUMENT_TYPE, REQUIRED_DOCS } from '../../constants/worker'
++import { formatDateTime, formatMoney } from '../../constants/order'
+ import RejectWorkerModal from './RejectWorkerModal'
++import DocumentReview from './DocumentReview'
++import VerificationTag from './VerificationTag'
+ 
+ type Props = { workerId: string | null; onClose: () => void; onChanged: () => void }
+ 
+-const formatDate = (v: string | null) => (v ? new Date(v).toLocaleString('vi-VN') : '—')
+ const percent = (v: number) => `${Math.round(v * 100)}%`
+ 
+ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Props) {
+@@ -23,8 +25,8 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+   const [submitting, setSubmitting] = useState(false)
+   const [rejectOpen, setRejectOpen] = useState(false)
+ 
+-  const load = useCallback(async (id: string) => {
+-    setLoading(true)
++  const load = useCallback(async (id: string, silent = false) => {
++    if (!silent) setLoading(true)
+     try {
+       setData(await getWorkerDetail(id))
+     } catch (e) {
+@@ -41,6 +43,11 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+     }
+   }, [workerId, load])
+ 
++  const refresh = () => {
++    onChanged()
++    if (workerId) load(workerId, true)
++  }
++
+   const submitReview = async (status: 'approved' | 'rejected', note?: string) => {
+     if (!workerId) return
+     setSubmitting(true)
+@@ -48,8 +55,7 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+       const res = await reviewWorker(workerId, status, note)
+       message.success(res.message)
+       setRejectOpen(false)
+-      onChanged()
+-      load(workerId)
++      refresh()
+     } catch (e) {
+       message.error((e as ApiError).message)
+     } finally {
+@@ -58,6 +64,16 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+   }
+ 
+   const w = data?.worker
++  const current = data?.documents.filter((d) => d.is_current) ?? []
++  // Giấy bắt buộc chưa có bản dùng được (chưa tải, hoặc bản mới nhất bị từ chối và không còn bản đã duyệt)
++  const blocking = REQUIRED_DOCS.filter((t) => {
++    const docs = data?.documents.filter((d) => d.doc_type === t) ?? []
++    return !docs.some((d) => d.status === 'approved' || (d.status === 'pending' && d.is_current))
++  })
++  const rejectedNote = current
++    .filter((d) => d.status === 'rejected' && d.reject_reason)
++    .map((d) => `${DOCUMENT_TYPE[d.doc_type]}: ${d.reject_reason}`)
++    .join('\n')
+ 
+   return (
+     <Drawer
+@@ -70,13 +86,24 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+           <Space>
+             {w.verification_status !== 'rejected' && (
+               <Button danger icon={<CloseOutlined />} onClick={() => setRejectOpen(true)}>
+-                Từ chối
++                {w.verification_status === 'approved' ? 'Thu hồi duyệt' : 'Từ chối hồ sơ'}
+               </Button>
+             )}
+             {w.verification_status !== 'approved' && (
+-              <Button type="primary" icon={<CheckOutlined />} loading={submitting} onClick={() => submitReview('approved')}>
+-                Duyệt hồ sơ
+-              </Button>
++              <Tooltip title={blocking.length ? `Còn thiếu giấy hợp lệ: ${blocking.map((t) => DOCUMENT_TYPE[t]).join(', ')}` : undefined}>
++                <Popconfirm
++                  title="Duyệt hồ sơ thợ này?"
++                  description="Các giấy tờ đang chờ sẽ được duyệt luôn. Thợ có thể bật nhận đơn ngay."
++                  okText="Duyệt"
++                  cancelText="Hủy"
++                  disabled={blocking.length > 0}
++                  onConfirm={() => submitReview('approved')}
++                >
++                  <Button type="primary" icon={<CheckOutlined />} loading={submitting} disabled={blocking.length > 0}>
++                    Duyệt hồ sơ
++                  </Button>
++                </Popconfirm>
++              </Tooltip>
+             )}
+           </Space>
+         )
+@@ -89,18 +116,31 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+           <Flex align="center" gap={16}>
+             <Avatar size={64} src={w.avatar_url ?? undefined} icon={<UserOutlined />} />
+             <Flex vertical gap={4}>
+-              <Typography.Title level={4}>{w.full_name}</Typography.Title>
++              <Typography.Title level={4} style={{ margin: 0 }}>{w.full_name}</Typography.Title>
+               <Space wrap>
+-                <Tag color={VERIFICATION[w.verification_status].color}>{VERIFICATION[w.verification_status].label}</Tag>
++                <VerificationTag w={w} />
+                 <Tag color={USER_STATUS[w.status].color}>{USER_STATUS[w.status].label}</Tag>
+-                <Tag color={w.is_online ? 'green' : 'default'}>{w.is_online ? 'Đang trực tuyến' : 'Ngoại tuyến'}</Tag>
++                <Tag color={w.is_busy ? 'orange' : w.is_online ? 'green' : 'default'}>
++                  {w.is_busy ? 'Đang làm đơn' : w.is_online ? 'Đang nhận đơn' : 'Ngoại tuyến'}
++                </Tag>
+                 {w.is_flagged && <Tag color="red">Bị gắn cờ bất thường</Tag>}
+               </Space>
+             </Flex>
+           </Flex>
+ 
++          {w.verification_status === 'pending' && !w.submitted_at && (
++            <Alert
++              type="info"
++              showIcon
++              title="Thợ đang hoàn thiện hồ sơ trên app"
++              description="Thợ chưa bấm “Gửi hồ sơ xét duyệt”. Có thể xem trước giấy tờ, nhưng nên đợi thợ gửi rồi mới duyệt."
++            />
++          )}
++          {w.verification_status === 'pending' && w.submitted_at && (
++            <Alert type="warning" showIcon title={`Thợ gửi hồ sơ lúc ${formatDateTime(w.submitted_at)}, đang chờ duyệt`} />
++          )}
+           {w.verification_status === 'rejected' && w.verification_note && (
+-            <Alert type="error" showIcon title="Lý do từ chối" description={w.verification_note} />
++            <Alert type="error" showIcon title="Lý do từ chối hồ sơ" description={w.verification_note} />
+           )}
+ 
+           <Row gutter={[12, 12]}>
+@@ -126,6 +166,13 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+             </Col>
+           </Row>
+ 
++          <DocumentReview
++            workerId={w.id}
++            documents={data.documents}
++            workerApproved={w.verification_status === 'approved'}
++            onChanged={refresh}
++          />
++
+           <Descriptions bordered size="small" column={1}>
+             <Descriptions.Item label="Số điện thoại">{w.phone ?? '—'}</Descriptions.Item>
+             <Descriptions.Item label="Email">{w.email ?? '—'}</Descriptions.Item>
+@@ -136,38 +183,29 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+               </Space>
+             </Descriptions.Item>
+             <Descriptions.Item label="Kinh nghiệm">{w.experience_years} năm</Descriptions.Item>
+-            <Descriptions.Item label="Kỹ năng">
+-              {data.skills.length ? data.skills.map((s) => <Tag key={s.id}>{s.name}</Tag>) : '—'}
++            <Descriptions.Item label="Nhóm dịch vụ">
++              {data.skills.length ? data.skills.map((s) => <Tag key={s.id}>{s.name} · {s.years} năm</Tag>) : '—'}
+             </Descriptions.Item>
+             <Descriptions.Item label="Bán kính nhận việc">{w.service_radius_km} km</Descriptions.Item>
++            <Descriptions.Item label="Vị trí cập nhật">{formatDateTime(w.location_updated_at)}</Descriptions.Item>
+             <Descriptions.Item label="Tỉ lệ hủy">{percent(w.cancel_rate)}</Descriptions.Item>
++            <Descriptions.Item label="Số dư ví">
++              <Typography.Text type={w.wallet_balance < 0 ? 'danger' : undefined}>{formatMoney(w.wallet_balance)}</Typography.Text>
++            </Descriptions.Item>
++            <Descriptions.Item label="Tài khoản nhận tiền">
++              {data.bankAccount
++                ? `${data.bankAccount.bank_name} · ${data.bankAccount.account_number} · ${data.bankAccount.account_holder}`
++                : 'Chưa liên kết'}
++            </Descriptions.Item>
+             <Descriptions.Item label="Giới thiệu">{w.bio ?? '—'}</Descriptions.Item>
+-            <Descriptions.Item label="Ngày đăng ký">{formatDate(w.created_at)}</Descriptions.Item>
+-            <Descriptions.Item label="Duyệt lúc">{formatDate(w.verified_at)}</Descriptions.Item>
++            <Descriptions.Item label="Ngày đăng ký">{formatDateTime(w.created_at)}</Descriptions.Item>
++            <Descriptions.Item label="Gửi hồ sơ">{formatDateTime(w.submitted_at)}</Descriptions.Item>
++            <Descriptions.Item label="Duyệt lúc">
++              {formatDateTime(w.verified_at)}
++              {w.verified_by_name && ` · ${w.verified_by_name}`}
++            </Descriptions.Item>
+           </Descriptions>
+ 
+-          <Card size="small" title={`Giấy tờ (${data.documents.length})`}>
+-            {data.documents.length === 0 ? (
+-              <Typography.Text type="secondary">Thợ chưa tải giấy tờ</Typography.Text>
+-            ) : (
+-              <Image.PreviewGroup>
+-                <Row gutter={[12, 12]}>
+-                  {data.documents.map((d) => (
+-                    <Col key={d.id} xs={12} md={8}>
+-                      <Flex vertical gap={4}>
+-                        <Image src={d.file_url} height={120} />
+-                        <Typography.Text>{DOCUMENT_TYPE[d.doc_type]}</Typography.Text>
+-                        <div>
+-                          <Tag color={VERIFICATION[d.status].color}>{VERIFICATION[d.status].label}</Tag>
+-                        </div>
+-                      </Flex>
+-                    </Col>
+-                  ))}
+-                </Row>
+-              </Image.PreviewGroup>
+-            )}
+-          </Card>
+-
+           <Card size="small" title="Đánh giá gần đây">
+             {data.recentReviews.length === 0 ? (
+               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có đánh giá" />
+@@ -194,9 +232,10 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
+       <RejectWorkerModal
+         open={rejectOpen}
+         loading={submitting}
++        initialNote={rejectedNote}
+         onCancel={() => setRejectOpen(false)}
+         onSubmit={(note) => submitReview('rejected', note)}
+       />
+     </Drawer>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/src/components/workers/WorkerTable.tsx b/src/components/workers/WorkerTable.tsx
+index 044eef9..a45f14c 100644
+--- a/src/components/workers/WorkerTable.tsx
++++ b/src/components/workers/WorkerTable.tsx
+@@ -6,7 +6,8 @@ import type { Paginated } from '../../api/users'
+ import type { WorkerListParams, WorkerRow } from '../../api/workers'
+ import type { ApiError } from '../../api/client'
+ import { USER_STATUS } from '../../constants/user'
+-import { VERIFICATION } from '../../constants/worker'
++import VerificationTag from './VerificationTag'
++import { formatDateTime } from '../../constants/order'
+ 
+ type Props = {
+   data?: Paginated<WorkerRow>
+@@ -15,9 +16,18 @@ type Props = {
+   onPageChange: (next: Partial<WorkerListParams>) => void
+   onChanged: () => void
+   onView: (id: string) => void
++  /** Đang xem hàng chờ duyệt: hiện cột thời gian gửi + thời gian chờ */
++  reviewQueue?: boolean
+ }
+ 
+-export default function WorkerTable({ data, loading, params, onPageChange, onChanged, onView }: Props) {
++const waited = (iso: string) => {
++  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
++  if (m < 60) return `${m} phút`
++  if (m < 60 * 24) return `${Math.floor(m / 60)} giờ`
++  return `${Math.floor(m / 60 / 24)} ngày`
++}
++
++export default function WorkerTable({ data, loading, params, onPageChange, onChanged, onView, reviewQueue }: Props) {
+   const { message } = App.useApp()
+ 
+   const toggleStatus = async (w: WorkerRow) => {
+@@ -36,7 +46,7 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
+       dataIndex: 'full_name',
+       render: (_, w) => (
+         <Space>
+-          <Badge dot status={w.is_online ? 'success' : 'default'}>
++          <Badge dot status={w.is_busy ? 'warning' : w.is_online ? 'success' : 'default'}>
+             <Avatar src={w.avatar_url ?? undefined} icon={<UserOutlined />} />
+           </Badge>
+           <Space orientation="vertical" size={0}>
+@@ -47,29 +57,49 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
+       ),
+     },
+     {
+-      title: 'Kỹ năng',
++      title: 'Nhóm dịch vụ',
+       dataIndex: 'skills',
+       render: (skills: string[]) => (skills.length ? skills.map((s) => <Tag key={s}>{s}</Tag>) : '—'),
+     },
+-    {
+-      title: 'Đánh giá',
+-      dataIndex: 'rating_avg',
+-      render: (_, w) =>
+-        w.rating_count === 0 ? (
+-          <Typography.Text type="secondary">Chưa có</Typography.Text>
+-        ) : (
+-          <Space size={4}>
+-            <Rate disabled count={1} value={1} />
+-            <Typography.Text strong>{w.rating_avg.toFixed(1)}</Typography.Text>
+-            <Typography.Text type="secondary">({w.rating_count})</Typography.Text>
+-          </Space>
+-        ),
+-    },
+-    { title: 'Số việc', dataIndex: 'total_jobs', align: 'right' },
++    ...(reviewQueue
++      ? [
++          {
++            title: 'Gửi hồ sơ',
++            dataIndex: 'submitted_at',
++            render: (v: string | null, w: WorkerRow) =>
++              w.verification_status === 'approved' ? (
++                <Typography.Text type="secondary">Đã duyệt, gửi giấy mới</Typography.Text>
++              ) : v ? (
++                <Space orientation="vertical" size={0}>
++                  <span>{formatDateTime(v)}</span>
++                  <Typography.Text type="secondary">chờ {waited(v)}</Typography.Text>
++                </Space>
++              ) : (
++                '—'
++              ),
++          },
++        ]
++      : [
++          {
++            title: 'Đánh giá',
++            dataIndex: 'rating_avg',
++            render: (_: number, w: WorkerRow) =>
++              w.rating_count === 0 ? (
++                <Typography.Text type="secondary">Chưa có</Typography.Text>
++              ) : (
++                <Space size={4}>
++                  <Rate disabled count={1} value={1} />
++                  <Typography.Text strong>{w.rating_avg.toFixed(1)}</Typography.Text>
++                  <Typography.Text type="secondary">({w.rating_count})</Typography.Text>
++                </Space>
++              ),
++          },
++          { title: 'Số việc', dataIndex: 'total_jobs', align: 'right' as const },
++        ]),
+     {
+       title: 'Hồ sơ',
+       dataIndex: 'verification_status',
+-      render: (v: WorkerRow['verification_status']) => <Tag color={VERIFICATION[v].color}>{VERIFICATION[v].label}</Tag>,
++      render: (_, w) => <VerificationTag w={w} />,
+     },
+     {
+       title: 'Tài khoản',
+@@ -83,8 +113,8 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
+         const locking = w.status === 'active'
+         return (
+           <Space>
+-            <Button size="small" icon={<EyeOutlined />} onClick={() => onView(w.id)}>
+-              Chi tiết
++            <Button size="small" type={w.needs_review ? 'primary' : 'default'} icon={<EyeOutlined />} onClick={() => onView(w.id)}>
++              {w.needs_review ? 'Duyệt' : 'Chi tiết'}
+             </Button>
+             <Popconfirm
+               title={locking ? 'Khóa tài khoản thợ này?' : 'Mở khóa tài khoản thợ này?'}
+@@ -109,6 +139,7 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
+       dataSource={data?.items}
+       loading={loading}
+       scroll={{ x: true }}
++      locale={reviewQueue ? { emptyText: 'Không có hồ sơ nào cần duyệt' } : undefined}
+       pagination={{
+         current: params.page,
+         pageSize: params.pageSize,
+@@ -119,4 +150,4 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
+       }}
+     />
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/src/constants/complaints.ts b/src/constants/complaints.ts
+index 77a903e..7d9e35d 100644
+--- a/src/constants/complaints.ts
++++ b/src/constants/complaints.ts
+@@ -1,4 +1,4 @@
+-import type { ComplaintStatus, ComplaintType } from '../api/complaints'
++import type { ComplaintSource, ComplaintStatus, ComplaintType } from '../api/complaints'
+ 
+ export const COMPLAINT_STATUS: Record<ComplaintStatus, { label: string; color: string }> = {
+   open: { label: 'Mới', color: 'error' },
+@@ -10,4 +10,13 @@ export const COMPLAINT_STATUS: Record<ComplaintStatus, { label: string; color: s
+ export const COMPLAINT_TYPE: Record<ComplaintType, { label: string; color: string }> = {
+   complaint: { label: 'Khiếu nại', color: 'volcano' },
+   warranty: { label: 'Bảo hành', color: 'geekblue' },
+-}
+\ No newline at end of file
++}
++
++export const COMPLAINT_SOURCE: Record<ComplaintSource, { label: string; color: string }> = {
++  customer: { label: 'Khách gửi', color: 'blue' },
++  worker: { label: 'Thợ báo cáo', color: 'orange' },
++}
++
++/** Báo cáo của thợ được lưu với tiêu đề "[Thợ báo cáo] <lý do>" — bỏ tiền tố khi hiển thị vì đã có tag */
++export const REPORT_PREFIX = '[Thợ báo cáo] '
++export const complaintTitle = (title: string) => (title.startsWith(REPORT_PREFIX) ? title.slice(REPORT_PREFIX.length) : title)
+diff --git a/src/constants/matching.ts b/src/constants/matching.ts
+index 788daea..a123f94 100644
+--- a/src/constants/matching.ts
++++ b/src/constants/matching.ts
+@@ -1,4 +1,10 @@
+-import type { WeightKey } from '../api/matching'
++import type { MatchingMode, WeightKey } from '../api/matching'
++
++export const MODES: { value: MatchingMode; label: string; color: string; help: string }[] = [
++  { value: 'auto', label: 'Tự động', color: 'purple', help: 'Mỗi vài giây hệ thống tự chọn: đơn không tranh thợ với đơn nào gửi ngay cho top-k thợ (như tức thời); nhóm đơn cùng cần 1 nhóm thợ thì ghép tối ưu bằng Hungarian (như theo lô). Khuyến nghị.' },
++  { value: 'instant', label: 'Tức thời', color: 'blue', help: 'Mỗi đơn gửi ngay cho k thợ điểm cao nhất (Greedy); hết thời gian chờ thì gửi đợt tiếp theo.' },
++  { value: 'batch', label: 'Theo lô', color: 'gold', help: 'Gom đơn trong cửa sổ lô rồi ghép tối ưu toàn cục bằng Hungarian, mỗi đơn mời đúng 1 thợ.' },
++]
+ 
+ export const WEIGHTS: { key: WeightKey; label: string; short: string; help: string }[] = [
+   { key: 'w_distance', label: 'Khoảng cách', short: 'KC', help: 'Thợ càng gần khách điểm càng cao' },
+diff --git a/src/constants/monitor.ts b/src/constants/monitor.ts
+new file mode 100644
+index 0000000..0225692
+--- /dev/null
++++ b/src/constants/monitor.ts
+@@ -0,0 +1,34 @@
++import type { OrderStatus } from '../api/dashboard'
++
++/** Màu đơn trên bản đồ theo nhóm trạng thái */
++export const ORDER_GROUP = {
++  matching: { label: 'Đang tìm thợ', color: '#d4380d', statuses: ['pending', 'matching'] as OrderStatus[] },
++  assigned: { label: 'Thợ đang đến', color: '#1677ff', statuses: ['accepted', 'on_the_way'] as OrderStatus[] },
++  working: { label: 'Đang sửa', color: '#722ed1', statuses: ['arrived', 'in_progress'] as OrderStatus[] },
++} as const
++
++export type OrderGroup = keyof typeof ORDER_GROUP
++
++export const groupOf = (s: OrderStatus): OrderGroup =>
++  (Object.keys(ORDER_GROUP) as OrderGroup[]).find((g) => ORDER_GROUP[g].statuses.includes(s)) ?? 'matching'
++
++/** Màu thợ trên bản đồ */
++export const WORKER_STATE = {
++  online: { label: 'Sẵn sàng', color: '#389e0d' },
++  busy: { label: 'Đang làm đơn', color: '#fa8c16' },
++  stale: { label: 'Ngoại tuyến', color: '#8c8c8c' },
++} as const
++
++export type WorkerState = keyof typeof WORKER_STATE
++
++export const workerStateOf = (w: { is_online: boolean; is_busy: boolean; location_fresh: boolean }): WorkerState =>
++  w.is_busy ? 'busy' : w.is_online && w.location_fresh ? 'online' : 'stale'
++
++export const ago = (iso: string | null) => {
++  if (!iso) return '—'
++  const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
++  if (s < 60) return `${s} giây trước`
++  if (s < 3600) return `${Math.floor(s / 60)} phút trước`
++  if (s < 86400) return `${Math.floor(s / 3600)} giờ trước`
++  return `${Math.floor(s / 86400)} ngày trước`
++}
+diff --git a/src/constants/order.ts b/src/constants/order.ts
+index 910b1ab..d7fb0bc 100644
+--- a/src/constants/order.ts
++++ b/src/constants/order.ts
+@@ -1,4 +1,5 @@
+ import type { OrderStatus } from '../api/dashboard'
++import type { OfferStatus, QuoteStatus } from '../api/orders'
+ 
+ export const ORDER_STATUS: Record<OrderStatus, { label: string; color: string }> = {
+   pending: { label: 'Chờ xử lý', color: 'default' },
+@@ -24,10 +25,19 @@ export const PAYMENT_STATUS: Record<'pending' | 'success' | 'failed' | 'refunded
+   refunded: { label: 'Đã hoàn tiền', color: 'warning' },
+ }
+ 
+-export const QUOTE_STATUS: Record<'pending' | 'approved' | 'rejected', { label: string; color: string }> = {
++export const QUOTE_STATUS: Record<QuoteStatus, { label: string; color: string }> = {
+   pending: { label: 'Chờ khách duyệt', color: 'processing' },
+   approved: { label: 'Khách đồng ý', color: 'success' },
+   rejected: { label: 'Khách từ chối', color: 'error' },
++  cancelled: { label: 'Thợ rút lại', color: 'default' },
++}
++
++export const OFFER_STATUS: Record<OfferStatus, { label: string; color: string }> = {
++  offered: { label: 'Đang chờ thợ', color: 'processing' },
++  accepted: { label: 'Đã nhận', color: 'success' },
++  rejected: { label: 'Thợ từ chối', color: 'error' },
++  expired: { label: 'Hết giờ', color: 'default' },
++  cancelled: { label: 'Thợ huỷ sau khi nhận', color: 'volcano' },
+ }
+ 
+ export const MATCHING_MODE: Record<'instant' | 'batch', string> = {
+diff --git a/src/constants/withdrawal.ts b/src/constants/withdrawal.ts
+new file mode 100644
+index 0000000..9652ca7
+--- /dev/null
++++ b/src/constants/withdrawal.ts
+@@ -0,0 +1,7 @@
++import type { WithdrawalStatus } from '../api/withdrawals'
++
++export const WITHDRAWAL_STATUS: Record<WithdrawalStatus, { label: string; color: string }> = {
++  pending: { label: 'Chờ duyệt', color: 'warning' },
++  completed: { label: 'Đã chuyển', color: 'success' },
++  rejected: { label: 'Từ chối · đã hoàn ví', color: 'error' },
++}
+diff --git a/src/constants/worker.ts b/src/constants/worker.ts
+index ad92018..b4d57b7 100644
+--- a/src/constants/worker.ts
++++ b/src/constants/worker.ts
+@@ -12,4 +12,16 @@ export const DOCUMENT_TYPE: Record<DocumentType, string> = {
+   certificate: 'Chứng chỉ nghề',
+   portrait: 'Ảnh chân dung',
+   other: 'Khác',
+-}
+\ No newline at end of file
++}
++
++/** Giấy tờ bắt buộc (trùng REQUIRED_DOCS của app thợ). Chứng chỉ nghề không bắt buộc. */
++export const REQUIRED_DOCS: DocumentType[] = ['id_card_front', 'id_card_back', 'portrait']
++
++/** Lý do từ chối hay gặp, bấm để điền nhanh */
++export const DOC_REJECT_REASONS = [
++  'Ảnh bị mờ, không đọc được thông tin',
++  'Ảnh bị loá / mất góc',
++  'Thông tin không khớp với họ tên đăng ký',
++  'Giấy tờ đã hết hạn',
++  'Ảnh chân dung không khớp ảnh trên CCCD',
++]
+diff --git a/src/routeTree.gen.ts b/src/routeTree.gen.ts
+index 509340a..095daa5 100644
+--- a/src/routeTree.gen.ts
++++ b/src/routeTree.gen.ts
+@@ -14,10 +14,12 @@ import { Route as LoginRouteImport } from './routes/login'
+ import { Route as AdminIndexRouteImport } from './routes/_admin/index'
+ import { Route as AdminComplaintsRouteImport } from './routes/_admin/complaints'
+ import { Route as AdminMatchingRouteImport } from './routes/_admin/matching'
++import { Route as AdminMonitorRouteImport } from './routes/_admin/monitor'
+ import { Route as AdminOrdersRouteImport } from './routes/_admin/orders'
+ import { Route as AdminReportsRouteImport } from './routes/_admin/reports'
+ import { Route as AdminServicesRouteImport } from './routes/_admin/services'
+ import { Route as AdminUsersRouteImport } from './routes/_admin/users'
++import { Route as AdminWithdrawalsRouteImport } from './routes/_admin/withdrawals'
+ import { Route as AdminWorkersRouteImport } from './routes/_admin/workers'
+ 
+ const AdminRoute = AdminRouteImport.update({
+@@ -44,6 +46,11 @@ const AdminMatchingRoute = AdminMatchingRouteImport.update({
+   path: '/matching',
+   getParentRoute: () => AdminRoute,
+ } as any)
++const AdminMonitorRoute = AdminMonitorRouteImport.update({
++  id: '/monitor',
++  path: '/monitor',
++  getParentRoute: () => AdminRoute,
++} as any)
+ const AdminOrdersRoute = AdminOrdersRouteImport.update({
+   id: '/orders',
+   path: '/orders',
+@@ -64,6 +71,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
+   path: '/users',
+   getParentRoute: () => AdminRoute,
+ } as any)
++const AdminWithdrawalsRoute = AdminWithdrawalsRouteImport.update({
++  id: '/withdrawals',
++  path: '/withdrawals',
++  getParentRoute: () => AdminRoute,
++} as any)
+ const AdminWorkersRoute = AdminWorkersRouteImport.update({
+   id: '/workers',
+   path: '/workers',
+@@ -75,20 +87,24 @@ export interface FileRoutesByFullPath {
+   '/login': typeof LoginRoute
+   '/complaints': typeof AdminComplaintsRoute
+   '/matching': typeof AdminMatchingRoute
++  '/monitor': typeof AdminMonitorRoute
+   '/orders': typeof AdminOrdersRoute
+   '/reports': typeof AdminReportsRoute
+   '/services': typeof AdminServicesRoute
+   '/users': typeof AdminUsersRoute
++  '/withdrawals': typeof AdminWithdrawalsRoute
+   '/workers': typeof AdminWorkersRoute
+ }
+ export interface FileRoutesByTo {
+   '/login': typeof LoginRoute
+   '/complaints': typeof AdminComplaintsRoute
+   '/matching': typeof AdminMatchingRoute
++  '/monitor': typeof AdminMonitorRoute
+   '/orders': typeof AdminOrdersRoute
+   '/reports': typeof AdminReportsRoute
+   '/services': typeof AdminServicesRoute
+   '/users': typeof AdminUsersRoute
++  '/withdrawals': typeof AdminWithdrawalsRoute
+   '/workers': typeof AdminWorkersRoute
+   '/': typeof AdminIndexRoute
+ }
+@@ -98,10 +114,12 @@ export interface FileRoutesById {
+   '/login': typeof LoginRoute
+   '/_admin/complaints': typeof AdminComplaintsRoute
+   '/_admin/matching': typeof AdminMatchingRoute
++  '/_admin/monitor': typeof AdminMonitorRoute
+   '/_admin/orders': typeof AdminOrdersRoute
+   '/_admin/reports': typeof AdminReportsRoute
+   '/_admin/services': typeof AdminServicesRoute
+   '/_admin/users': typeof AdminUsersRoute
++  '/_admin/withdrawals': typeof AdminWithdrawalsRoute
+   '/_admin/workers': typeof AdminWorkersRoute
+   '/_admin/': typeof AdminIndexRoute
+ }
+@@ -112,20 +130,24 @@ export interface FileRouteTypes {
+     | '/login'
+     | '/complaints'
+     | '/matching'
++    | '/monitor'
+     | '/orders'
+     | '/reports'
+     | '/services'
+     | '/users'
++    | '/withdrawals'
+     | '/workers'
+   fileRoutesByTo: FileRoutesByTo
+   to:
+     | '/login'
+     | '/complaints'
+     | '/matching'
++    | '/monitor'
+     | '/orders'
+     | '/reports'
+     | '/services'
+     | '/users'
++    | '/withdrawals'
+     | '/workers'
+     | '/'
+   id:
+@@ -134,10 +156,12 @@ export interface FileRouteTypes {
+     | '/login'
+     | '/_admin/complaints'
+     | '/_admin/matching'
++    | '/_admin/monitor'
+     | '/_admin/orders'
+     | '/_admin/reports'
+     | '/_admin/services'
+     | '/_admin/users'
++    | '/_admin/withdrawals'
+     | '/_admin/workers'
+     | '/_admin/'
+   fileRoutesById: FileRoutesById
+@@ -184,6 +208,13 @@ declare module '@tanstack/react-router' {
+       preLoaderRoute: typeof AdminMatchingRouteImport
+       parentRoute: typeof AdminRoute
+     }
++    '/_admin/monitor': {
++      id: '/_admin/monitor'
++      path: '/monitor'
++      fullPath: '/monitor'
++      preLoaderRoute: typeof AdminMonitorRouteImport
++      parentRoute: typeof AdminRoute
++    }
+     '/_admin/orders': {
+       id: '/_admin/orders'
+       path: '/orders'
+@@ -212,6 +243,13 @@ declare module '@tanstack/react-router' {
+       preLoaderRoute: typeof AdminUsersRouteImport
+       parentRoute: typeof AdminRoute
+     }
++    '/_admin/withdrawals': {
++      id: '/_admin/withdrawals'
++      path: '/withdrawals'
++      fullPath: '/withdrawals'
++      preLoaderRoute: typeof AdminWithdrawalsRouteImport
++      parentRoute: typeof AdminRoute
++    }
+     '/_admin/workers': {
+       id: '/_admin/workers'
+       path: '/workers'
+@@ -225,10 +263,12 @@ declare module '@tanstack/react-router' {
+ interface AdminRouteChildren {
+   AdminComplaintsRoute: typeof AdminComplaintsRoute
+   AdminMatchingRoute: typeof AdminMatchingRoute
++  AdminMonitorRoute: typeof AdminMonitorRoute
+   AdminOrdersRoute: typeof AdminOrdersRoute
+   AdminReportsRoute: typeof AdminReportsRoute
+   AdminServicesRoute: typeof AdminServicesRoute
+   AdminUsersRoute: typeof AdminUsersRoute
++  AdminWithdrawalsRoute: typeof AdminWithdrawalsRoute
+   AdminWorkersRoute: typeof AdminWorkersRoute
+   AdminIndexRoute: typeof AdminIndexRoute
+ }
+@@ -236,10 +276,12 @@ interface AdminRouteChildren {
+ const AdminRouteChildren: AdminRouteChildren = {
+   AdminComplaintsRoute: AdminComplaintsRoute,
+   AdminMatchingRoute: AdminMatchingRoute,
++  AdminMonitorRoute: AdminMonitorRoute,
+   AdminOrdersRoute: AdminOrdersRoute,
+   AdminReportsRoute: AdminReportsRoute,
+   AdminServicesRoute: AdminServicesRoute,
+   AdminUsersRoute: AdminUsersRoute,
++  AdminWithdrawalsRoute: AdminWithdrawalsRoute,
+   AdminWorkersRoute: AdminWorkersRoute,
+   AdminIndexRoute: AdminIndexRoute,
+ }
+diff --git a/src/routes/_admin/complaints.tsx b/src/routes/_admin/complaints.tsx
+index ce8c743..91ce397 100644
+--- a/src/routes/_admin/complaints.tsx
++++ b/src/routes/_admin/complaints.tsx
+@@ -17,7 +17,7 @@ function ComplaintsPage() {
+ 
+   return (
+     <Flex vertical gap={16}>
+-      <Typography.Title level={3}>Khiếu nại & bảo hành</Typography.Title>
++      <Typography.Title level={3}>Khiếu nại & báo cáo sự cố</Typography.Title>
+       <Card>
+         <Flex vertical gap={16}>
+           <ComplaintFilters onChange={updateParams} />
+diff --git a/src/routes/_admin/index.tsx b/src/routes/_admin/index.tsx
+index 39f7273..a54f96a 100644
+--- a/src/routes/_admin/index.tsx
++++ b/src/routes/_admin/index.tsx
+@@ -1,22 +1,30 @@
+ import { createFileRoute } from '@tanstack/react-router'
+ import { Flex, Typography } from 'antd'
+-import { getOverview } from '../../api/dashboard'
++import { getOverview, getPending } from '../../api/dashboard'
+ import StatCards from '../../components/dashboard/StatCards'
+ import RecentOrdersTable from '../../components/dashboard/RecentOrdersTable'
++import PendingTasks from '../../components/dashboard/PendingTasks'
+ 
+ export const Route = createFileRoute('/_admin/')({
+-  loader: () => getOverview(),
++  loader: async () => {
++    const [overview, pending] = await Promise.all([getOverview(), getPending()])
++    return { ...overview, pending }
++  },
+   component: DashboardPage,
+ })
+ 
+ function DashboardPage() {
+-  const { stats, recentOrders } = Route.useLoaderData()
++  const { stats, recentOrders, pending } = Route.useLoaderData()
+ 
+   return (
+     <Flex vertical gap={16}>
+       <Typography.Title level={3}>Tổng quan</Typography.Title>
+       <StatCards stats={stats} />
++      <Typography.Title level={5} style={{ margin: 0 }}>
++        Việc cần xử lý
++      </Typography.Title>
++      <PendingTasks pending={pending} />
+       <RecentOrdersTable orders={recentOrders} />
+     </Flex>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/src/routes/_admin/matching.tsx b/src/routes/_admin/matching.tsx
+index 4d0f650..b70b1cb 100644
+--- a/src/routes/_admin/matching.tsx
++++ b/src/routes/_admin/matching.tsx
+@@ -9,6 +9,7 @@ import ConfigTable from '../../components/matching/ConfigTable'
+ import ConfigFormModal from '../../components/matching/ConfigFormModal'
+ import type { FormMode } from '../../components/matching/ConfigFormModal'
+ import SimulationDrawer from '../../components/matching/StimulationDrawer'
++import DispatchStatusCard from '../../components/matching/DispatchStatusCard'
+ 
+ export const Route = createFileRoute('/_admin/matching')({
+   component: MatchingPage,
+@@ -64,8 +65,9 @@ function MatchingPage() {
+         type="info"
+         showIcon
+         title="Cách hệ thống chọn thợ"
+-        description="Mỗi thợ trong bán kính được chấm điểm = Σ (trọng số × điểm tiêu chí), trong đó mỗi tiêu chí được chuẩn hóa về 0–1. Thợ có tổng điểm cao nhất nhận lời mời trước. Bộ đã có đơn sử dụng sẽ bị khóa chỉnh sửa để giữ nguyên kết quả thực nghiệm."
++        description="Mỗi thợ trong bán kính được chấm điểm = Σ (trọng số × điểm tiêu chí), trong đó mỗi tiêu chí được chuẩn hóa về 0–1. Chế độ Tức thời gửi lời mời cho k thợ điểm cao nhất (Greedy); Theo lô gom đơn rồi ghép tối ưu bằng Hungarian; Tự động tự chọn giữa hai cách cho từng nhóm đơn. Khách không chọn chế độ — hệ thống dùng cấu hình đang áp dụng. Bộ đã có đơn sử dụng sẽ bị khóa chỉnh sửa để giữ nguyên kết quả thực nghiệm."
+       />
++      <DispatchStatusCard onModeChanged={load} />
+       <Card
+         title="Các bộ trọng số"
+         extra={
+diff --git a/src/routes/_admin/monitor.tsx b/src/routes/_admin/monitor.tsx
+new file mode 100644
+index 0000000..d5b6e1c
+--- /dev/null
++++ b/src/routes/_admin/monitor.tsx
+@@ -0,0 +1,287 @@
++import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
++import { createFileRoute } from '@tanstack/react-router'
++import L from 'leaflet'
++import { App, Badge, Card, Checkbox, Col, Flex, Row, Space, Statistic, Switch, Table, Tabs, Tag, Typography } from 'antd'
++import { getMapData } from '../../api/monitor'
++import type { MapData, MapOrder, MapWorker } from '../../api/monitor'
++import type { ApiError } from '../../api/client'
++import LeafletMap from '../../components/map/LeafletMap'
++import SelectionCard from '../../components/monitor/SelectionCard'
++import OrderDetailDrawer from '../../components/orders/OrderDetailDrawer'
++import WorkerDetailDrawer from '../../components/workers/WorkerDetailDrawer'
++import { ORDER_GROUP, WORKER_STATE, ago, groupOf, workerStateOf } from '../../constants/monitor'
++import type { OrderGroup, WorkerState } from '../../constants/monitor'
++import { ORDER_STATUS } from '../../constants/order'
++
++export const Route = createFileRoute('/_admin/monitor')({
++  component: MonitorPage,
++})
++
++const REFRESH_MS = 5000
++const ORDER_GROUPS = Object.keys(ORDER_GROUP) as OrderGroup[]
++const WORKER_STATES = Object.keys(WORKER_STATE) as WorkerState[]
++
++type Selected = { type: 'order' | 'worker'; id: string } | null
++
++/** Nhãn khi rê chuột: dùng textContent để tên người dùng không bị hiểu là HTML */
++const label = (text: string) => {
++  const el = document.createElement('div')
++  el.textContent = text
++  return el
++}
++
++function MonitorPage() {
++  const { message } = App.useApp()
++  const [data, setData] = useState<MapData>()
++  const [auto, setAuto] = useState(true)
++  const [orderGroups, setOrderGroups] = useState<OrderGroup[]>(ORDER_GROUPS)
++  const [workerStates, setWorkerStates] = useState<WorkerState[]>(WORKER_STATES)
++  const [selected, setSelected] = useState<Selected>(null)
++  const [orderId, setOrderId] = useState<string | null>(null)
++  const [workerId, setWorkerId] = useState<string | null>(null)
++  const mapRef = useRef<L.Map | null>(null)
++  const layerRef = useRef<L.LayerGroup | null>(null)
++  const fitted = useRef(false)
++
++  const load = useCallback(async () => {
++    try {
++      setData(await getMapData())
++    } catch (e) {
++      message.error((e as ApiError).message)
++    }
++  }, [message])
++
++  useEffect(() => {
++    load()
++    if (!auto) return
++    const t = setInterval(load, REFRESH_MS)
++    return () => clearInterval(t)
++  }, [auto, load])
++
++  const orders = useMemo(() => (data?.orders ?? []).filter((o) => orderGroups.includes(groupOf(o.status))), [data, orderGroups])
++  const workers = useMemo(
++    () => (data?.workers ?? []).filter((w) => workerStates.includes(workerStateOf(w))),
++    [data, workerStates],
++  )
++
++  const onReady = useCallback((map: L.Map) => {
++    mapRef.current = map
++    layerRef.current = L.layerGroup().addTo(map)
++  }, [])
++
++  // Vẽ lại các lớp mỗi lần có dữ liệu mới / đổi bộ lọc / đổi lựa chọn
++  useEffect(() => {
++    const map = mapRef.current
++    const layer = layerRef.current
++    if (!map || !layer || !data) return
++    layer.clearLayers()
++
++    const byId = new Map(data.workers.map((w) => [w.id, w]))
++    const isSel = (type: 'order' | 'worker', id: string) => selected?.type === type && selected.id === id
++
++    // Đường nối thợ -> đơn đang phụ trách
++    for (const o of orders) {
++      const w = o.worker_id ? byId.get(o.worker_id) : undefined
++      if (!w) continue
++      L.polyline(
++        [
++          [w.lat, w.lng],
++          [o.lat, o.lng],
++        ],
++        { color: ORDER_GROUP[groupOf(o.status)].color, weight: 2, dashArray: '6 6', opacity: 0.7 },
++      ).addTo(layer)
++    }
++
++    for (const o of orders) {
++      const sel = isSel('order', o.id)
++      L.circleMarker([o.lat, o.lng], {
++        radius: sel ? 12 : 9,
++        color: ORDER_GROUP[groupOf(o.status)].color,
++        weight: sel ? 5 : 4,
++        fillColor: '#fff',
++        fillOpacity: 1,
++      })
++        .bindTooltip(label(`${o.code} · ${ORDER_STATUS[o.status].label} · ${o.service_name}`))
++        .on('click', () => setSelected({ type: 'order', id: o.id }))
++        .addTo(layer)
++    }
++
++    for (const w of workers) {
++      const st = workerStateOf(w)
++      const sel = isSel('worker', w.id)
++      if (sel) {
++        L.circle([w.lat, w.lng], { radius: w.service_radius_km * 1000, color: WORKER_STATE[st].color, weight: 1, fillOpacity: 0.05 }).addTo(layer)
++      }
++      L.circleMarker([w.lat, w.lng], {
++        radius: sel ? 9 : 6,
++        color: '#fff',
++        weight: 2,
++        fillColor: WORKER_STATE[st].color,
++        fillOpacity: 1,
++      })
++        .bindTooltip(label(`Thợ ${w.full_name} · ${WORKER_STATE[st].label}`))
++        .on('click', () => setSelected({ type: 'worker', id: w.id }))
++        .addTo(layer)
++    }
++
++    // Lần đầu có dữ liệu: thu phóng vừa tất cả điểm
++    if (!fitted.current) {
++      const pts: L.LatLngTuple[] = [...data.orders.map((o) => [o.lat, o.lng] as L.LatLngTuple), ...data.workers.map((w) => [w.lat, w.lng] as L.LatLngTuple)]
++      if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 15 })
++      fitted.current = true
++    }
++  }, [data, orders, workers, selected])
++
++  const focus = (type: 'order' | 'worker', item: MapOrder | MapWorker) => {
++    setSelected({ type, id: item.id })
++    mapRef.current?.flyTo([item.lat, item.lng], Math.max(mapRef.current.getZoom(), 15), { duration: 0.5 })
++  }
++
++  const selOrder = selected?.type === 'order' ? data?.orders.find((o) => o.id === selected.id) : undefined
++  const selWorker = selected?.type === 'worker' ? data?.workers.find((w) => w.id === selected.id) : undefined
++  const count = (g: OrderGroup) => data?.orders.filter((o) => groupOf(o.status) === g).length ?? 0
++  const countW = (s: WorkerState) => data?.workers.filter((w) => workerStateOf(w) === s).length ?? 0
++
++  return (
++    <Flex vertical gap={16}>
++      <Flex justify="space-between" align="center" wrap gap={12}>
++        <Typography.Title level={3} style={{ margin: 0 }}>
++          Bản đồ giám sát
++        </Typography.Title>
++        <Space>
++          <Typography.Text type="secondary">{data ? `Cập nhật ${ago(data.generated_at)}` : 'Đang tải...'}</Typography.Text>
++          <Switch checked={auto} onChange={setAuto} checkedChildren="Tự cập nhật" unCheckedChildren="Tạm dừng" />
++        </Space>
++      </Flex>
++
++      <Row gutter={[16, 16]}>
++        {ORDER_GROUPS.map((g) => (
++          <Col key={g} xs={12} md={8} xl={4}>
++            <Card size="small">
++              <Statistic title={<Badge color={ORDER_GROUP[g].color} text={`Đơn ${ORDER_GROUP[g].label.toLowerCase()}`} />} value={count(g)} />
++            </Card>
++          </Col>
++        ))}
++        {WORKER_STATES.map((s) => (
++          <Col key={s} xs={12} md={8} xl={4}>
++            <Card size="small">
++              <Statistic title={<Badge color={WORKER_STATE[s].color} text={`Thợ ${WORKER_STATE[s].label.toLowerCase()}`} />} value={countW(s)} />
++            </Card>
++          </Col>
++        ))}
++      </Row>
++
++      <Row gutter={[16, 16]}>
++        <Col xs={24} lg={16}>
++          <Card size="small" styles={{ body: { padding: 8 } }}>
++            <Flex vertical gap={8}>
++              <Flex gap={16} wrap>
++                <Checkbox.Group<OrderGroup>
++                  value={orderGroups}
++                  onChange={setOrderGroups}
++                  options={ORDER_GROUPS.map((g) => ({ value: g, label: <Badge color={ORDER_GROUP[g].color} text={`Đơn: ${ORDER_GROUP[g].label.toLowerCase()}`} /> }))}
++                />
++                <Checkbox.Group<WorkerState>
++                  value={workerStates}
++                  onChange={setWorkerStates}
++                  options={WORKER_STATES.map((s) => ({ value: s, label: <Badge color={WORKER_STATE[s].color} text={`Thợ ${WORKER_STATE[s].label.toLowerCase()}`} /> }))}
++                />
++              </Flex>
++              <LeafletMap height="calc(100vh - 330px)" onReady={onReady} />
++              <Typography.Text type="secondary">
++                Vòng tròn rỗng = đơn hàng, chấm đặc = thợ (vị trí do app thợ gửi lên); chấm nằm trong vòng = thợ đang ở nơi sửa. Nét đứt nối thợ với đơn đang phụ trách. Bấm vào thợ để xem bán kính nhận việc.
++              </Typography.Text>
++            </Flex>
++          </Card>
++        </Col>
++        <Col xs={24} lg={8}>
++          <Flex vertical gap={16}>
++            <SelectionCard
++              order={selOrder}
++              worker={selWorker}
++              onClose={() => setSelected(null)}
++              onOpenOrder={setOrderId}
++              onOpenWorker={setWorkerId}
++            />
++            <Card size="small" styles={{ body: { paddingTop: 0 } }}>
++              <Tabs
++                items={[
++                  {
++                    key: 'orders',
++                    label: `Đơn đang chạy (${orders.length})`,
++                    children: (
++                      <Table<MapOrder>
++                        rowKey="id"
++                        size="small"
++                        showHeader={false}
++                        pagination={false}
++                        dataSource={orders}
++                        scroll={{ y: 'calc(100vh - 460px)' }}
++                        locale={{ emptyText: 'Không có đơn nào đang chạy' }}
++                        onRow={(o) => ({ onClick: () => focus('order', o), style: { cursor: 'pointer' } })}
++                        rowClassName={(o) => (selected?.type === 'order' && selected.id === o.id ? 'ant-table-row-selected' : '')}
++                        columns={[
++                          {
++                            key: 'o',
++                            render: (_, o) => (
++                              <Flex vertical>
++                                <Space size={4}>
++                                  <Typography.Text strong>{o.code}</Typography.Text>
++                                  <Tag color={ORDER_STATUS[o.status].color}>{ORDER_STATUS[o.status].label}</Tag>
++                                </Space>
++                                <Typography.Text type="secondary">
++                                  {o.service_name} · {o.worker_name ?? 'chưa có thợ'} · {ago(o.created_at)}
++                                </Typography.Text>
++                              </Flex>
++                            ),
++                          },
++                        ]}
++                      />
++                    ),
++                  },
++                  {
++                    key: 'workers',
++                    label: `Thợ (${workers.length})`,
++                    children: (
++                      <Table<MapWorker>
++                        rowKey="id"
++                        size="small"
++                        showHeader={false}
++                        pagination={false}
++                        dataSource={workers}
++                        scroll={{ y: 'calc(100vh - 460px)' }}
++                        locale={{ emptyText: 'Không có thợ nào có vị trí' }}
++                        onRow={(w) => ({ onClick: () => focus('worker', w), style: { cursor: 'pointer' } })}
++                        rowClassName={(w) => (selected?.type === 'worker' && selected.id === w.id ? 'ant-table-row-selected' : '')}
++                        columns={[
++                          {
++                            key: 'w',
++                            render: (_, w) => {
++                              const st = WORKER_STATE[workerStateOf(w)]
++                              return (
++                                <Flex vertical>
++                                  <Badge color={st.color} text={<Typography.Text strong>{w.full_name}</Typography.Text>} />
++                                  <Typography.Text type="secondary">
++                                    {st.label}
++                                    {w.current_order_code ? ` · ${w.current_order_code}` : ''} · vị trí {ago(w.location_updated_at)}
++                                  </Typography.Text>
++                                </Flex>
++                              )
++                            },
++                          },
++                        ]}
++                      />
++                    ),
++                  },
++                ]}
++              />
++            </Card>
++          </Flex>
++        </Col>
++      </Row>
++
++      <OrderDetailDrawer orderId={orderId} onClose={() => setOrderId(null)} onChanged={load} />
++      <WorkerDetailDrawer workerId={workerId} onClose={() => setWorkerId(null)} onChanged={load} />
++    </Flex>
++  )
++}
+diff --git a/src/routes/_admin/withdrawals.tsx b/src/routes/_admin/withdrawals.tsx
+new file mode 100644
+index 0000000..a207577
+--- /dev/null
++++ b/src/routes/_admin/withdrawals.tsx
+@@ -0,0 +1,88 @@
++import { useState } from 'react'
++import { createFileRoute } from '@tanstack/react-router'
++import { Alert, App, Card, Flex, Segmented, Typography } from 'antd'
++import { usePagedList } from '../../hooks/usePagedList'
++import { approveWithdrawal, listWithdrawals, rejectWithdrawal } from '../../api/withdrawals'
++import type { Withdrawal, WithdrawalListParams, WithdrawalStatus } from '../../api/withdrawals'
++import type { ApiError } from '../../api/client'
++import { WITHDRAWAL_STATUS } from '../../constants/withdrawal'
++import { formatMoney } from '../../constants/order'
++import WithdrawalTable from '../../components/withdrawals/WithdrawalTable'
++import RejectWithdrawalModal from '../../components/withdrawals/RejectWithdrawalModal'
++
++export const Route = createFileRoute('/_admin/withdrawals')({
++  component: WithdrawalsPage,
++})
++
++type View = WithdrawalStatus | 'all'
++
++function WithdrawalsPage() {
++  const { message } = App.useApp()
++  const initial: WithdrawalListParams = { page: 1, pageSize: 10, status: 'pending' }
++  const { params, data, loading, reload, updateParams } = usePagedList(listWithdrawals, initial)
++  const [busyId, setBusyId] = useState<number | null>(null)
++  const [rejecting, setRejecting] = useState<Withdrawal | null>(null)
++
++  const run = async (w: Withdrawal, action: () => Promise<Withdrawal>, done: string) => {
++    setBusyId(w.id)
++    try {
++      await action()
++      message.success(done)
++      setRejecting(null)
++      reload()
++    } catch (e) {
++      message.error((e as ApiError).message)
++    } finally {
++      setBusyId(null)
++    }
++  }
++
++  const pendingTotal = params.status === 'pending' ? (data?.items ?? []).reduce((s, w) => s + w.amount, 0) : 0
++
++  return (
++    <Flex vertical gap={16}>
++      <Typography.Title level={3}>Duyệt rút tiền của thợ</Typography.Title>
++      <Alert
++        type="info"
++        showIcon
++        title="Thợ yêu cầu rút tiền từ ví trên app thợ"
++        description="Số tiền đã bị trừ khỏi ví ngay khi thợ gửi yêu cầu. Duyệt = xác nhận đã chuyển khoản; từ chối = hoàn lại tiền vào ví thợ. Nếu backend đang bật WITHDRAWAL_AUTO_APPROVE=true (mặc định khi demo), lệnh rút được duyệt tự động nên trang này chỉ còn lịch sử."
++      />
++      <Card>
++        <Flex vertical gap={16}>
++          <Flex justify="space-between" align="center" wrap gap={12}>
++            <Segmented<View>
++              value={params.status ?? 'all'}
++              onChange={(v) => updateParams({ status: v === 'all' ? undefined : v })}
++              options={[
++                ...Object.entries(WITHDRAWAL_STATUS).map(([value, s]) => ({ value: value as View, label: s.label })),
++                { value: 'all', label: 'Tất cả' },
++              ]}
++            />
++            {pendingTotal > 0 && (
++              <Typography.Text>
++                Trang này đang chờ chuyển: <Typography.Text strong>{formatMoney(pendingTotal)}</Typography.Text>
++              </Typography.Text>
++            )}
++          </Flex>
++          <WithdrawalTable
++            data={data}
++            loading={loading}
++            params={params}
++            busyId={busyId}
++            onPageChange={updateParams}
++            onApprove={(w) => run(w, () => approveWithdrawal(w.id), `Đã duyệt lệnh rút #${w.id}`)}
++            onReject={setRejecting}
++          />
++        </Flex>
++      </Card>
++
++      <RejectWithdrawalModal
++        withdrawal={rejecting}
++        loading={!!rejecting && busyId === rejecting.id}
++        onCancel={() => setRejecting(null)}
++        onSubmit={(note) => rejecting && run(rejecting, () => rejectWithdrawal(rejecting.id, note), `Đã từ chối lệnh rút #${rejecting.id}, tiền đã hoàn vào ví thợ`)}
++      />
++    </Flex>
++  )
++}
+diff --git a/src/routes/_admin/workers.tsx b/src/routes/_admin/workers.tsx
+index 5d10471..f957c76 100644
+--- a/src/routes/_admin/workers.tsx
++++ b/src/routes/_admin/workers.tsx
+@@ -1,8 +1,9 @@
+ import { useState } from 'react'
+ import { createFileRoute } from '@tanstack/react-router'
+-import { Card, Flex, Typography } from 'antd'
++import { Card, Flex, Segmented, Typography } from 'antd'
+ import { usePagedList } from '../../hooks/usePagedList'
+ import { listWorkers } from '../../api/workers'
++import type { WorkerListParams } from '../../api/workers'
+ import WorkerFilters from '../../components/workers/WorkerFilters'
+ import WorkerTable from '../../components/workers/WorkerTable'
+ import WorkerDetailDrawer from '../../components/workers/WorkerDetailDrawer'
+@@ -11,16 +12,31 @@ export const Route = createFileRoute('/_admin/workers')({
+   component: WorkersPage,
+ })
+ 
++type View = 'needed' | 'all'
++
+ function WorkersPage() {
+-  const { params, data, loading, reload, updateParams } = usePagedList(listWorkers, { page: 1, pageSize: 10 })
++  // Mặc định mở hàng chờ duyệt: hồ sơ thợ đã bấm "Gửi hồ sơ" + thợ đã duyệt gửi giấy tờ mới, gửi trước xếp trước
++  const initial: WorkerListParams = { page: 1, pageSize: 10, review: 'needed' }
++  const { params, data, loading, reload, updateParams } = usePagedList(listWorkers, initial)
+   const [viewingId, setViewingId] = useState<string | null>(null)
++  const view: View = params.review === 'needed' ? 'needed' : 'all'
+ 
+   return (
+     <Flex vertical gap={16}>
+       <Typography.Title level={3}>Quản lý thợ</Typography.Title>
+       <Card>
+         <Flex vertical gap={16}>
+-          <WorkerFilters onChange={updateParams} />
++          <Flex justify="space-between" wrap gap={12}>
++            <Segmented<View>
++              value={view}
++              onChange={(v) => updateParams({ review: v === 'needed' ? 'needed' : undefined })}
++              options={[
++                { value: 'needed', label: 'Cần duyệt' },
++                { value: 'all', label: 'Tất cả thợ' },
++              ]}
++            />
++            <WorkerFilters onChange={updateParams} />
++          </Flex>
+           <WorkerTable
+             data={data}
+             loading={loading}
+@@ -28,6 +44,7 @@ function WorkersPage() {
+             onPageChange={updateParams}
+             onChanged={reload}
+             onView={setViewingId}
++            reviewQueue={view === 'needed'}
+           />
+         </Flex>
+       </Card>
+@@ -35,4 +52,4 @@ function WorkersPage() {
+       <WorkerDetailDrawer workerId={viewingId} onClose={() => setViewingId(null)} onChanged={reload} />
+     </Flex>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/tsconfig.json b/tsconfig.json
+new file mode 100644
+index 0000000..3bac00d
+--- /dev/null
++++ b/tsconfig.json
+@@ -0,0 +1,16 @@
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "lib": ["ES2022", "DOM", "DOM.Iterable"],
++    "module": "ESNext",
++    "moduleResolution": "bundler",
++    "jsx": "react-jsx",
++    "strict": true,
++    "noEmit": true,
++    "skipLibCheck": true,
++    "isolatedModules": true,
++    "allowImportingTsExtensions": false,
++    "types": ["vite/client"]
++  },
++  "include": ["src"]
++}
+diff --git a/vite.config.js b/vite.config.js
+index 1f92182..21a97c5 100644
+--- a/vite.config.js
++++ b/vite.config.js
+@@ -1,14 +1,28 @@
+ import react from '@vitejs/plugin-react'
+-import { defineConfig } from 'vite'
++import { defineConfig, loadEnv } from 'vite'
+ import { tanstackRouter } from '@tanstack/router-plugin/vite'
+ 
+ // https://vite.dev/config/
+-export default defineConfig({
+-  plugins: [
+-    tanstackRouter({
+-      target: 'react',
+-      autoCodeSplitting: true
+-    }),
+-    react()
+-  ],
++export default defineConfig(({ mode }) => {
++  const env = loadEnv(mode, process.cwd(), '')
++  // Backend Node dùng chung của nhóm (repo nodejs, mặc định cổng 3000)
++  const target = env.VITE_PROXY_TARGET || 'http://localhost:3000'
++
++  return {
++    plugins: [
++      tanstackRouter({
++        target: 'react',
++        autoCodeSplitting: true
++      }),
++      react()
++    ],
++    server: {
++      port: 5173,
++      // Gọi API cùng origin để cookie đăng nhập (httpOnly) luôn gửi kèm, không vướng CORS
++      proxy: {
++        '/api': { target, changeOrigin: true },
++        '/media': { target, changeOrigin: true },
++      },
++    },
++  }
+ })

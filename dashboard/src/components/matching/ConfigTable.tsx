@@ -2,7 +2,7 @@ import { Button, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd
 import type { TableProps } from 'antd'
 import { CheckCircleOutlined, CopyOutlined, DeleteOutlined, EditOutlined, ExperimentOutlined } from '@ant-design/icons'
 import type { MatchingConfig } from '../../api/matching'
-import { WEIGHTS } from '../../constants/matching'
+import { MODES, WEIGHTS } from '../../constants/matching'
 
 
 type Props = {
@@ -47,6 +47,21 @@ export default function ConfigTable({ configs, loading, onActivate, onEdit, onDu
           ))}
         </Space>
       ),
+    },
+    {
+      title: 'Chế độ',
+      dataIndex: 'mode',
+      render: (v: MatchingConfig['mode'], c) => {
+        const m = MODES.find((x) => x.value === v)
+        return (
+          <Tooltip title={m?.help}>
+            <Tag color={m?.color}>
+              {m?.label ?? v}
+              {v !== 'batch' && ` · k=${c.max_offers}`}
+            </Tag>
+          </Tooltip>
+        )
+      },
     },
     { title: 'Bán kính', dataIndex: 'max_radius_km', render: (v: number) => `${v} km` },
     { title: 'Chờ nhận', dataIndex: 'offer_timeout_seconds', render: (v: number) => `${v}s` },

@@ -5,8 +5,10 @@ export type ApiError = {
     message: string;
 }
 
+// Mặc định gọi cùng origin qua '/api' (Vite dev và nginx trong Docker đều proxy sang backend),
+// nên cookie đăng nhập httpOnly luôn là cookie cùng site. Muốn gọi thẳng backend thì đặt VITE_API_URL.
 export const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+    baseURL: import.meta.env.VITE_API_URL || '/api',
     withCredentials: true,
 })
 
@@ -15,7 +17,7 @@ api.interceptors.response.use(
     (err)=>{
         const error: ApiError={
             status: err.response?.status,
-            message: err.response?.data?.message || 'Unable to connect to server',
+            message: err.response?.data?.message || 'Không kết nối được máy chủ',
         }
         return Promise.reject(error)
     }

@@ -3,10 +3,12 @@ import type { HandleComplaintInput } from '../../api/complaints'
 
 type Props = {
   loading: boolean
+  /** Ai sẽ nhận thông báo kết quả: khách (khiếu nại) hoặc thợ (báo cáo sự cố) */
+  audience?: 'khách' | 'thợ'
   onSubmit: (values: HandleComplaintInput) => void
 }
 
-export default function ComplaintHandleForm({ loading, onSubmit }: Props) {
+export default function ComplaintHandleForm({ loading, onSubmit, audience = 'khách' }: Props) {
   const [form] = Form.useForm<HandleComplaintInput>()
   const status = Form.useWatch('status', form)
 
@@ -25,10 +27,10 @@ export default function ComplaintHandleForm({ loading, onSubmit }: Props) {
         </Form.Item>
         <Form.Item
           name="resolution"
-          label="Hướng giải quyết (khách sẽ nhìn thấy)"
+          label={`Hướng giải quyết (${audience} sẽ nhận thông báo)`}
           rules={[{ required: status !== 'processing', whitespace: true, message: 'Vui lòng nhập hướng giải quyết' }]}
         >
-          <Input.TextArea rows={3} placeholder="VD: Đã yêu cầu thợ quay lại bảo hành miễn phí trong 24h" />
+          <Input.TextArea rows={3} placeholder={audience === 'thợ' ? 'VD: Đã liên hệ khách, khách sẽ thanh toán trong hôm nay' : 'VD: Đã yêu cầu thợ quay lại bảo hành miễn phí trong 24h'} />
         </Form.Item>
         <Button type="primary" htmlType="submit" loading={loading}>
           Lưu

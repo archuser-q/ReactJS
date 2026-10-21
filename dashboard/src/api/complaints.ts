@@ -4,6 +4,8 @@ import type { Paginated } from './users'
 
 export type ComplaintStatus = 'open' | 'processing' | 'resolved' | 'rejected'
 export type ComplaintType = 'complaint' | 'warranty'
+/** customer = khách gửi từ app khách; worker = thợ báo cáo sự cố từ app thợ (reporter_id khác null) */
+export type ComplaintSource = 'customer' | 'worker'
 
 export type ComplaintRow = {
   id: string
@@ -12,6 +14,8 @@ export type ComplaintRow = {
   status: ComplaintStatus
   created_at: string
   resolved_at: string | null
+  reporter_id: string | null
+  source: ComplaintSource
   order_id: string
   order_code: string
   customer_name: string
@@ -22,6 +26,7 @@ export type ComplaintListParams = {
   search?: string
   status?: ComplaintStatus
   type?: ComplaintType
+  source?: ComplaintSource
   page: number
   pageSize: number
 }
@@ -36,6 +41,9 @@ export type ComplaintDetail = {
   resolution: string | null
   created_at: string
   resolved_at: string | null
+  reporter_id: string | null
+  reporter_name: string | null
+  source: ComplaintSource
   order_id: string
   order_code: string
   order_status: OrderStatus

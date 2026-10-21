@@ -2,11 +2,16 @@ import { api } from './client'
 
 export type WeightKey = 'w_distance' | 'w_trust' | 'w_skill' | 'w_acceptance' | 'w_workload'
 
+/** Chế độ ghép do hệ thống chạy: tức thời (Greedy top-k), theo lô (Hungarian), tự động (hệ thống tự chọn cho từng nhóm đơn) */
+export type MatchingMode = 'instant' | 'batch' | 'auto'
+
 export type MatchingConfigInput = Record<WeightKey, number> & {
   name: string
   max_radius_km: number
   offer_timeout_seconds: number
   batch_window_seconds: number
+  mode: MatchingMode
+  max_offers: number
 }
 
 export type MatchingConfig = MatchingConfigInput & {

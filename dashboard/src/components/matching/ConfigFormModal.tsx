@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import { Alert, Button, Col, Divider, Form, Input, InputNumber, Modal, Progress, Row, Tooltip, Typography } from 'antd'
+import { Alert, Button, Col, Divider, Form, Input, InputNumber, Modal, Progress, Row, Segmented, Tooltip, Typography } from 'antd'
 import { QuestionCircleOutlined } from '@ant-design/icons'
 import type { MatchingConfig, MatchingConfigInput } from '../../api/matching'
-import { WEIGHTS } from '../../constants/matching'
+import { MODES, WEIGHTS } from '../../constants/matching'
 import WeightInput from './WeightInput'
 
 export type FormMode = { type: 'create' } | { type: 'edit'; config: MatchingConfig } | { type: 'duplicate'; config: MatchingConfig }
@@ -24,6 +24,8 @@ const DEFAULTS: MatchingConfigInput = {
   max_radius_km: 10,
   offer_timeout_seconds: 30,
   batch_window_seconds: 10,
+  mode: 'auto',
+  max_offers: 1,
 }
 
 const TITLES = { create: 'Tạo bộ trọng số', edit: 'Sửa bộ trọng số', duplicate: 'Nhân bản bộ trọng số' }
@@ -32,11 +34,17 @@ export default function ConfigFormModal({ mode, loading, onCancel, onSubmit }: P
   const [form] = Form.useForm<MatchingConfigInput>()
   const values = Form.useWatch([], form)
   const sum = Math.round(WEIGHTS.reduce((s, w) => s + (values?.[w.key] ?? 0), 0) * 100)
+  const modeInfo = MODES.find((m) => m.value === (values?.mode ?? 'auto'))
 
   useEffect(() => {
     if (!mode) return
     if (mode.type === 'create') form.setFieldsValue(DEFAULTS)
-    else form.setFieldsValue({ ...mode.config, name: mode.type === 'duplicate' ? `${mode.config.name} (bản sao)` : mode.config.name })
+    else
+      form.setFieldsValue({
+        ...DEFAULTS,
+        ...mode.config,
+        name: mode.type === 'duplicate' ? `${mode.config.name} (bản sao)` : mode.config.name,
+      })
   }, [mode, form])
 
   const normalize = () => {
@@ -100,6 +108,14 @@ export default function ConfigFormModal({ mode, loading, onCancel, onSubmit }: P
         )}
 
         <Divider titlePlacement="start" plain>
+          Chế độ ghép
+        </Divider>
+        <Form.Item name="mode">
+          <Segmented block options={MODES.map((m) => ({ value: m.value, label: m.label }))} />
+        </Form.Item>
+        {modeInfo && <Typography.Paragraph type="secondary">{modeInfo.help}</Typography.Paragraph>}
+
+        <Divider titlePlacement="start" plain>
           Tham số
         </Divider>
         <Row gutter={16}>
@@ -115,12 +131,17 @@ export default function ConfigFormModal({ mode, loading, onCancel, onSubmit }: P
           </Col>
           <Col xs={24} sm={8}>
             <Form.Item name="batch_window_seconds" label="Cửa sổ gom lô">
-              <InputNumber min={5} max={120} suffix="giây" style={{ width: '100%' }} />
+              <InputNumber min={5} max={120} suffix="giây" style={{ width: '100%' }} disabled={values?.mode !== 'batch'} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item name="max_offers" label="Số thợ mời mỗi đợt (k)">
+              <InputNumber min={1} max={10} suffix="thợ" style={{ width: '100%' }} disabled={values?.mode === 'batch'} />
             </Form.Item>
           </Col>
         </Row>
         <Typography.Text type="secondary">
-          Cửa sổ gom lô chỉ áp dụng cho chế độ theo lô: hệ thống gom các đơn trong khoảng thời gian này rồi ghép một lượt bằng thuật toán Hungarian.
+          Cửa sổ gom lô dùng cho chế độ theo lô; k dùng cho chế độ tức thời và các đơn được gửi ngay ở chế độ tự động.
         </Typography.Text>
       </Form>
     </Modal>

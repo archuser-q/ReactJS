@@ -6,7 +6,8 @@ import type { Paginated } from '../../api/users'
 import type { WorkerListParams, WorkerRow } from '../../api/workers'
 import type { ApiError } from '../../api/client'
 import { USER_STATUS } from '../../constants/user'
-import { VERIFICATION } from '../../constants/worker'
+import VerificationTag from './VerificationTag'
+import { formatDateTime } from '../../constants/order'
 
 type Props = {
   data?: Paginated<WorkerRow>
@@ -15,9 +16,18 @@ type Props = {
   onPageChange: (next: Partial<WorkerListParams>) => void
   onChanged: () => void
   onView: (id: string) => void
+  /** Đang xem hàng chờ duyệt: hiện cột thời gian gửi + thời gian chờ */
+  reviewQueue?: boolean
 }
 
-export default function WorkerTable({ data, loading, params, onPageChange, onChanged, onView }: Props) {
+const waited = (iso: string) => {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
+  if (m < 60) return `${m} phút`
+  if (m < 60 * 24) return `${Math.floor(m / 60)} giờ`
+  return `${Math.floor(m / 60 / 24)} ngày`
+}
+
+export default function WorkerTable({ data, loading, params, onPageChange, onChanged, onView, reviewQueue }: Props) {
   const { message } = App.useApp()
 
   const toggleStatus = async (w: WorkerRow) => {
@@ -36,7 +46,7 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
       dataIndex: 'full_name',
       render: (_, w) => (
         <Space>
-          <Badge dot status={w.is_online ? 'success' : 'default'}>
+          <Badge dot status={w.is_busy ? 'warning' : w.is_online ? 'success' : 'default'}>
             <Avatar src={w.avatar_url ?? undefined} icon={<UserOutlined />} />
           </Badge>
           <Space orientation="vertical" size={0}>
@@ -47,29 +57,49 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
       ),
     },
     {
-      title: 'Kỹ năng',
+      title: 'Nhóm dịch vụ',
       dataIndex: 'skills',
       render: (skills: string[]) => (skills.length ? skills.map((s) => <Tag key={s}>{s}</Tag>) : '—'),
     },
-    {
-      title: 'Đánh giá',
-      dataIndex: 'rating_avg',
-      render: (_, w) =>
-        w.rating_count === 0 ? (
-          <Typography.Text type="secondary">Chưa có</Typography.Text>
-        ) : (
-          <Space size={4}>
-            <Rate disabled count={1} value={1} />
-            <Typography.Text strong>{w.rating_avg.toFixed(1)}</Typography.Text>
-            <Typography.Text type="secondary">({w.rating_count})</Typography.Text>
-          </Space>
-        ),
-    },
-    { title: 'Số việc', dataIndex: 'total_jobs', align: 'right' },
+    ...(reviewQueue
+      ? [
+          {
+            title: 'Gửi hồ sơ',
+            dataIndex: 'submitted_at',
+            render: (v: string | null, w: WorkerRow) =>
+              w.verification_status === 'approved' ? (
+                <Typography.Text type="secondary">Đã duyệt, gửi giấy mới</Typography.Text>
+              ) : v ? (
+                <Space orientation="vertical" size={0}>
+                  <span>{formatDateTime(v)}</span>
+                  <Typography.Text type="secondary">chờ {waited(v)}</Typography.Text>
+                </Space>
+              ) : (
+                '—'
+              ),
+          },
+        ]
+      : [
+          {
+            title: 'Đánh giá',
+            dataIndex: 'rating_avg',
+            render: (_: number, w: WorkerRow) =>
+              w.rating_count === 0 ? (
+                <Typography.Text type="secondary">Chưa có</Typography.Text>
+              ) : (
+                <Space size={4}>
+                  <Rate disabled count={1} value={1} />
+                  <Typography.Text strong>{w.rating_avg.toFixed(1)}</Typography.Text>
+                  <Typography.Text type="secondary">({w.rating_count})</Typography.Text>
+                </Space>
+              ),
+          },
+          { title: 'Số việc', dataIndex: 'total_jobs', align: 'right' as const },
+        ]),
     {
       title: 'Hồ sơ',
       dataIndex: 'verification_status',
-      render: (v: WorkerRow['verification_status']) => <Tag color={VERIFICATION[v].color}>{VERIFICATION[v].label}</Tag>,
+      render: (_, w) => <VerificationTag w={w} />,
     },
     {
       title: 'Tài khoản',
@@ -83,8 +113,8 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
         const locking = w.status === 'active'
         return (
           <Space>
-            <Button size="small" icon={<EyeOutlined />} onClick={() => onView(w.id)}>
-              Chi tiết
+            <Button size="small" type={w.needs_review ? 'primary' : 'default'} icon={<EyeOutlined />} onClick={() => onView(w.id)}>
+              {w.needs_review ? 'Duyệt' : 'Chi tiết'}
             </Button>
             <Popconfirm
               title={locking ? 'Khóa tài khoản thợ này?' : 'Mở khóa tài khoản thợ này?'}
@@ -109,6 +139,7 @@ export default function WorkerTable({ data, loading, params, onPageChange, onCha
       dataSource={data?.items}
       loading={loading}
       scroll={{ x: true }}
+      locale={reviewQueue ? { emptyText: 'Không có hồ sơ nào cần duyệt' } : undefined}
       pagination={{
         current: params.page,
         pageSize: params.pageSize,
