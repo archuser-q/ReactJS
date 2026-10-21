@@ -1,6 +1,6 @@
 import { Flex, Layout, Menu, MenuProps, Typography } from "antd";
 import { FileRouteTypes } from "../../routeTree.gen";
-import { AppstoreOutlined, BarChartOutlined, DashboardOutlined, FileTextOutlined, NodeIndexOutlined, ToolOutlined, UserOutlined, WarningOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, BarChartOutlined, DashboardOutlined, EnvironmentOutlined, FileTextOutlined, NodeIndexOutlined, ToolOutlined, UserOutlined, WalletOutlined, WarningOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 
@@ -8,10 +8,12 @@ type MenuItem = Required<MenuProps>['items'][number] & {key:FileRouteTypes['to']
 
 const items: MenuItem[] = [
   { key: '/', icon: <DashboardOutlined />, label: 'Tổng quan' },
+  { key: '/monitor', icon: <EnvironmentOutlined />, label: 'Bản đồ giám sát' },
   { key: '/users', icon: <UserOutlined />, label: 'Khách hàng' },
   { key: '/workers', icon: <ToolOutlined />, label: 'Thợ' },
   { key: '/services', icon: <AppstoreOutlined />, label: 'Dịch vụ' },
   { key: '/orders', icon: <FileTextOutlined />, label: 'Đơn hàng' },
+  { key: '/finance', icon: <WalletOutlined />, label: 'Tài chính' },
   { key: '/complaints', icon: <WarningOutlined />, label: 'Khiếu nại' },
   { key: '/reports', icon: <BarChartOutlined />, label: 'Thống kê' },
   { key: '/matching', icon: <NodeIndexOutlined />, label: 'Ghép cặp' },

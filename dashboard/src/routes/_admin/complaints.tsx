@@ -17,7 +17,7 @@ function ComplaintsPage() {
 
   return (
     <Flex vertical gap={16}>
-      <Typography.Title level={3}>Khiếu nại & bảo hành</Typography.Title>
+      <Typography.Title level={3}>Khiếu nại & báo cáo sự cố</Typography.Title>
       <Card>
         <Flex vertical gap={16}>
           <ComplaintFilters onChange={updateParams} />

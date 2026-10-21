@@ -9,6 +9,7 @@ import ConfigTable from '../../components/matching/ConfigTable'
 import ConfigFormModal from '../../components/matching/ConfigFormModal'
 import type { FormMode } from '../../components/matching/ConfigFormModal'
 import SimulationDrawer from '../../components/matching/StimulationDrawer'
+import DispatchStatusCard from '../../components/matching/DispatchStatusCard'
 
 export const Route = createFileRoute('/_admin/matching')({
   component: MatchingPage,
@@ -64,8 +65,9 @@ function MatchingPage() {
         type="info"
         showIcon
         title="Cách hệ thống chọn thợ"
-        description="Mỗi thợ trong bán kính được chấm điểm = Σ (trọng số × điểm tiêu chí), trong đó mỗi tiêu chí được chuẩn hóa về 0–1. Thợ có tổng điểm cao nhất nhận lời mời trước. Bộ đã có đơn sử dụng sẽ bị khóa chỉnh sửa để giữ nguyên kết quả thực nghiệm."
+        description="Mỗi thợ trong bán kính được chấm điểm = Σ (trọng số × điểm tiêu chí), trong đó mỗi tiêu chí được chuẩn hóa về 0–1. Chế độ Tức thời gửi lời mời cho k thợ điểm cao nhất (Greedy); Theo lô gom đơn rồi ghép tối ưu bằng Hungarian; Tự động tự chọn giữa hai cách cho từng nhóm đơn. Khách không chọn chế độ — hệ thống dùng cấu hình đang áp dụng. Bộ đã có đơn sử dụng sẽ bị khóa chỉnh sửa để giữ nguyên kết quả thực nghiệm."
       />
+      <DispatchStatusCard onModeChanged={load} />
       <Card
         title="Các bộ trọng số"
         extra={

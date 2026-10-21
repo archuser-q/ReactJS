@@ -4,7 +4,7 @@ import { FileSearchOutlined } from '@ant-design/icons'
 import { getComplaintDetail, handleComplaint } from '../../api/complaints'
 import type { ComplaintDetail, HandleComplaintInput } from '../../api/complaints'
 import type { ApiError } from '../../api/client'
-import { COMPLAINT_STATUS, COMPLAINT_TYPE } from '../../constants/complaints'
+import { COMPLAINT_SOURCE, COMPLAINT_STATUS, COMPLAINT_TYPE, complaintTitle } from '../../constants/complaints'
 import { ORDER_STATUS, formatDateTime, formatMoney } from '../../constants/order'
 import OrderDetailDrawer from '../orders/OrderDetailDrawer'
 import ComplaintHandleForm from './ComplaintHandleForm'
@@ -62,13 +62,15 @@ export default function ComplaintDetailDrawer({ complaintId, onClose, onChanged 
         <Flex vertical gap={16}>
           <Flex vertical gap={8}>
             <Space wrap>
-              <Tag color={COMPLAINT_TYPE[data.type].color}>{COMPLAINT_TYPE[data.type].label}</Tag>
+              <Tag color={COMPLAINT_SOURCE[data.source].color}>{COMPLAINT_SOURCE[data.source].label}</Tag>
+              {data.source === 'customer' && <Tag color={COMPLAINT_TYPE[data.type].color}>{COMPLAINT_TYPE[data.type].label}</Tag>}
               <Tag color={COMPLAINT_STATUS[data.status].color}>{COMPLAINT_STATUS[data.status].label}</Tag>
             </Space>
-            <Typography.Title level={4}>{data.title}</Typography.Title>
-            <Typography.Paragraph>{data.content}</Typography.Paragraph>
+            <Typography.Title level={4}>{complaintTitle(data.title)}</Typography.Title>
+            {data.content !== complaintTitle(data.title) && <Typography.Paragraph>{data.content}</Typography.Paragraph>}
             <Typography.Text type="secondary">
-              {data.customer_name} gửi lúc {formatDateTime(data.created_at)}
+              {data.source === 'worker' ? `Thợ ${data.reporter_name ?? data.worker_name ?? ''}` : `Khách ${data.customer_name}`} gửi lúc{' '}
+              {formatDateTime(data.created_at)}
             </Typography.Text>
           </Flex>
 
@@ -82,7 +84,16 @@ export default function ComplaintDetailDrawer({ complaintId, onClose, onChanged 
             </Image.PreviewGroup>
           )}
 
-          {data.type === 'warranty' && (
+          {data.source === 'worker' && (
+            <Alert
+              type="warning"
+              showIcon
+              title="Báo cáo sự cố do thợ gửi từ app thợ"
+              description="Khách không nhìn thấy báo cáo này. Kết quả xử lý sẽ được gửi thông báo cho thợ, thợ xem lại trong mục Báo cáo sự cố."
+            />
+          )}
+
+          {data.type === 'warranty' && data.source === 'customer' && (
             <Alert
               type={inWarranty ? 'success' : 'warning'}
               showIcon
@@ -124,7 +135,7 @@ export default function ComplaintDetailDrawer({ complaintId, onClose, onChanged 
           ) : (
             <>
               {data.resolution && <Alert type="info" showIcon title="Ghi chú trước đó" description={data.resolution} />}
-              <ComplaintHandleForm key={data.status} loading={saving} onSubmit={submit} />
+              <ComplaintHandleForm key={data.status} loading={saving} onSubmit={submit} audience={data.source === 'worker' ? 'thợ' : 'khách'} />
             </>
           )}
         </Flex>

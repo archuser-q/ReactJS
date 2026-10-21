@@ -13,3 +13,15 @@ export const DOCUMENT_TYPE: Record<DocumentType, string> = {
   portrait: 'Ảnh chân dung',
   other: 'Khác',
 }
+
+/** Giấy tờ bắt buộc (trùng REQUIRED_DOCS của app thợ). Chứng chỉ nghề không bắt buộc. */
+export const REQUIRED_DOCS: DocumentType[] = ['id_card_front', 'id_card_back', 'portrait']
+
+/** Lý do từ chối hay gặp, bấm để điền nhanh */
+export const DOC_REJECT_REASONS = [
+  'Ảnh bị mờ, không đọc được thông tin',
+  'Ảnh bị loá / mất góc',
+  'Thông tin không khớp với họ tên đăng ký',
+  'Giấy tờ đã hết hạn',
+  'Ảnh chân dung không khớp ảnh trên CCCD',
+]

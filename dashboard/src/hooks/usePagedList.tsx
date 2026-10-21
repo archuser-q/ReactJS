@@ -5,10 +5,11 @@ import type { ApiError } from '../api/client'
 
 type BaseParams = { page: number; pageSize: number }
 
-export function usePagedList<T, P extends BaseParams>(fetcher: (params: P) => Promise<Paginated<T>>, initial: P) {
+/** Danh sách phân trang. R là kiểu trả về đầy đủ (có thể kèm summary, counts... ngoài items/total). */
+export function usePagedList<R extends Paginated<unknown>, P extends BaseParams>(fetcher: (params: P) => Promise<R>, initial: P) {
   const { message } = App.useApp()
   const [params, setParams] = useState<P>(initial)
-  const [data, setData] = useState<Paginated<T>>()
+  const [data, setData] = useState<R>()
   const [loading, setLoading] = useState(false)
 
   const reload = useCallback(async () => {

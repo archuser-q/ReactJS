@@ -10,6 +10,9 @@ import {
   MATCHING_MODE, ORDER_STATUS, PAYMENT_METHOD, PAYMENT_STATUS, QUOTE_STATUS, formatDateTime, formatMoney,
 } from '../../constants/order'
 import CancelOrderModal from './CancelOrderModal'
+import OrderMatchingCard from './OrderMatchingCard'
+import OrderPhotosCard from './OrderPhotosCard'
+import OrderTrailMap from './OrderTrailMap'
 
 type Props = { orderId: string | null; onClose: () => void; onChanged: () => void }
 
@@ -78,6 +81,7 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }: Props
           <Space wrap>
             <Tag color={ORDER_STATUS[o.status].color}>{ORDER_STATUS[o.status].label}</Tag>
             <Tag>Ghép cặp: {MATCHING_MODE[o.matching_mode]}</Tag>
+            {o.safety_checked_at && <Tag color="green">Thợ đã kiểm tra an toàn điện lúc {formatDateTime(o.safety_checked_at)}</Tag>}
           </Space>
 
           {o.status === 'cancelled' && (
@@ -97,8 +101,8 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }: Props
             </Descriptions.Item>
             <Descriptions.Item label="Địa chỉ">
               {o.address_text}{' '}
-              <Typography.Link href={`https://www.google.com/maps?q=${o.lat},${o.lng}`} target="_blank">
-                Xem bản đồ
+              <Typography.Link href={`https://www.openstreetmap.org/?mlat=${o.lat}&mlon=${o.lng}#map=17/${o.lat}/${o.lng}`} target="_blank">
+                Mở bản đồ lớn
               </Typography.Link>
             </Descriptions.Item>
             <Descriptions.Item label="Mô tả sự cố">{o.description ?? '—'}</Descriptions.Item>
@@ -117,6 +121,12 @@ export default function OrderDetailDrawer({ orderId, onClose, onChanged }: Props
               </Image.PreviewGroup>
             </Card>
           )}
+
+          <OrderTrailMap data={data} />
+
+          <OrderMatchingCard data={data} />
+
+          <OrderPhotosCard photos={data.photos} />
 
           <Descriptions bordered size="small" column={1} title="Chi phí">
             <Descriptions.Item label="Giá dự kiến">{formatMoney(o.estimated_price)}</Descriptions.Item>

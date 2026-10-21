@@ -13,7 +13,9 @@ import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminIndexRouteImport } from './routes/_admin/index'
 import { Route as AdminComplaintsRouteImport } from './routes/_admin/complaints'
+import { Route as AdminFinanceRouteImport } from './routes/_admin/finance'
 import { Route as AdminMatchingRouteImport } from './routes/_admin/matching'
+import { Route as AdminMonitorRouteImport } from './routes/_admin/monitor'
 import { Route as AdminOrdersRouteImport } from './routes/_admin/orders'
 import { Route as AdminReportsRouteImport } from './routes/_admin/reports'
 import { Route as AdminServicesRouteImport } from './routes/_admin/services'
@@ -39,9 +41,19 @@ const AdminComplaintsRoute = AdminComplaintsRouteImport.update({
   path: '/complaints',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminFinanceRoute = AdminFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMatchingRoute = AdminMatchingRouteImport.update({
   id: '/matching',
   path: '/matching',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMonitorRoute = AdminMonitorRouteImport.update({
+  id: '/monitor',
+  path: '/monitor',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminOrdersRoute = AdminOrdersRouteImport.update({
@@ -74,7 +86,9 @@ export interface FileRoutesByFullPath {
   '/': typeof AdminIndexRoute
   '/login': typeof LoginRoute
   '/complaints': typeof AdminComplaintsRoute
+  '/finance': typeof AdminFinanceRoute
   '/matching': typeof AdminMatchingRoute
+  '/monitor': typeof AdminMonitorRoute
   '/orders': typeof AdminOrdersRoute
   '/reports': typeof AdminReportsRoute
   '/services': typeof AdminServicesRoute
@@ -84,7 +98,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/complaints': typeof AdminComplaintsRoute
+  '/finance': typeof AdminFinanceRoute
   '/matching': typeof AdminMatchingRoute
+  '/monitor': typeof AdminMonitorRoute
   '/orders': typeof AdminOrdersRoute
   '/reports': typeof AdminReportsRoute
   '/services': typeof AdminServicesRoute
@@ -97,7 +113,9 @@ export interface FileRoutesById {
   '/_admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/_admin/complaints': typeof AdminComplaintsRoute
+  '/_admin/finance': typeof AdminFinanceRoute
   '/_admin/matching': typeof AdminMatchingRoute
+  '/_admin/monitor': typeof AdminMonitorRoute
   '/_admin/orders': typeof AdminOrdersRoute
   '/_admin/reports': typeof AdminReportsRoute
   '/_admin/services': typeof AdminServicesRoute
@@ -111,7 +129,9 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/complaints'
+    | '/finance'
     | '/matching'
+    | '/monitor'
     | '/orders'
     | '/reports'
     | '/services'
@@ -121,7 +141,9 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/complaints'
+    | '/finance'
     | '/matching'
+    | '/monitor'
     | '/orders'
     | '/reports'
     | '/services'
@@ -133,7 +155,9 @@ export interface FileRouteTypes {
     | '/_admin'
     | '/login'
     | '/_admin/complaints'
+    | '/_admin/finance'
     | '/_admin/matching'
+    | '/_admin/monitor'
     | '/_admin/orders'
     | '/_admin/reports'
     | '/_admin/services'
@@ -177,11 +201,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminComplaintsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/finance': {
+      id: '/_admin/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof AdminFinanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/matching': {
       id: '/_admin/matching'
       path: '/matching'
       fullPath: '/matching'
       preLoaderRoute: typeof AdminMatchingRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/monitor': {
+      id: '/_admin/monitor'
+      path: '/monitor'
+      fullPath: '/monitor'
+      preLoaderRoute: typeof AdminMonitorRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/orders': {
@@ -224,7 +262,9 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminComplaintsRoute: typeof AdminComplaintsRoute
+  AdminFinanceRoute: typeof AdminFinanceRoute
   AdminMatchingRoute: typeof AdminMatchingRoute
+  AdminMonitorRoute: typeof AdminMonitorRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminServicesRoute: typeof AdminServicesRoute
@@ -235,7 +275,9 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminComplaintsRoute: AdminComplaintsRoute,
+  AdminFinanceRoute: AdminFinanceRoute,
   AdminMatchingRoute: AdminMatchingRoute,
+  AdminMonitorRoute: AdminMonitorRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminServicesRoute: AdminServicesRoute,

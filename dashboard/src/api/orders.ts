@@ -44,6 +44,7 @@ export type OrderDetail = {
     cancelled_at: string | null
     cancel_reason: string | null
     warranty_until: string | null
+    safety_checked_at: string | null
     estimated_price: number
     extra_amount: number
     final_price: number | null
@@ -68,7 +69,7 @@ export type OrderDetail = {
     created_at: string
     changed_by_name: string | null
   }[]
-  quotes: { id: string; description: string; amount: number; status: 'pending' | 'approved' | 'rejected'; created_at: string }[]
+  quotes: { id: string; description: string; amount: number; status: QuoteStatus; created_at: string }[]
   payments: {
     id: string
     method: 'cash' | 'momo' | 'vnpay'
@@ -79,6 +80,42 @@ export type OrderDetail = {
     created_at: string
   }[]
   review: { id: string; rating: number; comment: string | null; is_flagged: boolean; created_at: string } | null
+  /** Ảnh thợ chụp trên app thợ: trước khi sửa / sau khi sửa */
+  photos: { id: string; kind: 'before' | 'after'; url: string; created_at: string }[]
+  /** Các lời mời bộ điều phối đã gửi cho thợ */
+  offers: OrderOffer[]
+  /** Vết di chuyển của thợ khi làm đơn (app thợ gửi ~20 giây / điểm) */
+  trail: { lat: number; lng: number; recorded_at: string }[]
+  /** Hàng đợi ghép cặp (chỉ có khi đơn đang tìm thợ) */
+  dispatch: {
+    mode: 'instant' | 'batch' | 'auto'
+    rounds: number
+    offers_sent: number
+    last_candidates: number | null
+    next_attempt_at: string
+    last_attempt_at: string | null
+    deadline_at: string
+    created_at: string
+  } | null
+}
+
+export type QuoteStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type OfferStatus = 'offered' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
+
+export type OrderOffer = {
+  id: string
+  worker_id: string
+  worker_name: string
+  mode: 'instant' | 'batch'
+  round: number
+  rank_position: number | null
+  score: number
+  distance_km: number | null
+  status: OfferStatus
+  reason: string | null
+  offered_at: string
+  expires_at: string
+  responded_at: string | null
 }
 
 export const listOrders = async (params: OrderListParams) => {

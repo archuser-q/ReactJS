@@ -1,0 +1,18 @@
+# Web quản trị THỢ NHANH
+#   1. Chạy backend trước (repo nodejs):  docker compose up -d --build   -> http://localhost:3000
+#   2. Ở thư mục này:                      docker compose up -d --build   -> http://localhost:5173
+# Đăng nhập: admin@thonhanh.vn / 12345678
+name: tho-nhanh-dashboard
+
+services:
+  dashboard:
+    build: .
+    image: tho-nhanh/dashboard:latest
+    environment:
+      # Backend chạy ở máy host (cổng 3000). Đổi nếu backend ở máy khác, VD http://192.168.1.10:3000
+      API_UPSTREAM: ${API_UPSTREAM:-http://host.docker.internal:3000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # cần cho Linux; Docker Desktop (Windows/macOS) có sẵn
+    ports:
+      - "${DASHBOARD_PORT:-5173}:80"
+    restart: unless-stopped

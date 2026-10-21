@@ -1,6 +1,6 @@
 import { Input, Select, Space } from 'antd'
-import type { ComplaintListParams, ComplaintStatus, ComplaintType } from '../../api/complaints'
-import { COMPLAINT_STATUS, COMPLAINT_TYPE } from '../../constants/complaints'
+import type { ComplaintListParams, ComplaintSource, ComplaintStatus, ComplaintType } from '../../api/complaints'
+import { COMPLAINT_SOURCE, COMPLAINT_STATUS, COMPLAINT_TYPE } from '../../constants/complaints'
 
 type Props = { onChange: (next: Partial<ComplaintListParams>) => void }
 
@@ -12,6 +12,13 @@ export default function ComplaintFilters({ onChange }: Props) {
         allowClear
         enterButton
         onSearch={(value) => onChange({ search: value || undefined })}
+      />
+      <Select<ComplaintSource>
+        placeholder="Người gửi"
+        allowClear
+        popupMatchSelectWidth={false}
+        onChange={(value) => onChange({ source: value })}
+        options={Object.entries(COMPLAINT_SOURCE).map(([value, s]) => ({ value: value as ComplaintSource, label: s.label }))}
       />
       <Select<ComplaintType>
         placeholder="Loại"

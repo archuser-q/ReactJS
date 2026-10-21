@@ -1,4 +1,5 @@
 import type { OrderStatus } from '../api/dashboard'
+import type { OfferStatus, QuoteStatus } from '../api/orders'
 
 export const ORDER_STATUS: Record<OrderStatus, { label: string; color: string }> = {
   pending: { label: 'Chờ xử lý', color: 'default' },
@@ -24,10 +25,19 @@ export const PAYMENT_STATUS: Record<'pending' | 'success' | 'failed' | 'refunded
   refunded: { label: 'Đã hoàn tiền', color: 'warning' },
 }
 
-export const QUOTE_STATUS: Record<'pending' | 'approved' | 'rejected', { label: string; color: string }> = {
+export const QUOTE_STATUS: Record<QuoteStatus, { label: string; color: string }> = {
   pending: { label: 'Chờ khách duyệt', color: 'processing' },
   approved: { label: 'Khách đồng ý', color: 'success' },
   rejected: { label: 'Khách từ chối', color: 'error' },
+  cancelled: { label: 'Thợ rút lại', color: 'default' },
+}
+
+export const OFFER_STATUS: Record<OfferStatus, { label: string; color: string }> = {
+  offered: { label: 'Đang chờ thợ', color: 'processing' },
+  accepted: { label: 'Đã nhận', color: 'success' },
+  rejected: { label: 'Thợ từ chối', color: 'error' },
+  expired: { label: 'Hết giờ', color: 'default' },
+  cancelled: { label: 'Thợ huỷ sau khi nhận', color: 'volcano' },
 }
 
 export const MATCHING_MODE: Record<'instant' | 'batch', string> = {

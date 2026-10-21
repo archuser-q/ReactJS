@@ -30,7 +30,7 @@ export default function CategoryFormModal({ open, editing, loading, onCancel, on
     >
       <Form form={form} layout="vertical" onFinish={onSubmit}>
         <Form.Item name="name" label="Tên danh mục" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập tên' }]}>
-          <Input placeholder="VD: Điện lạnh" />
+          <Input placeholder="VD: Sửa chữa điện" />
         </Form.Item>
         <Form.Item name="description" label="Mô tả">
           <Input.TextArea rows={2} />
