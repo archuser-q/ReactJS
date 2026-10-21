@@ -67,7 +67,7 @@ export default function HomeScreen() {
               {(home.data?.unread ?? 0) > 0 && <View style={styles.bellDot} />}
             </Pressable>
             <Pressable onPress={() => navigate('profile')}>
-              <Avatar name={name || '?'} size={36} />
+              <Avatar name={name || '?'} size={36} uri={user?.avatar_url} />
             </Pressable>
           </View>
         </View>

@@ -5,9 +5,9 @@ import { Icon } from '../components/Icon';
 import { PulseDot } from '../components/PulseDot';
 import { Header, Screen } from '../components/Screen';
 import { StateView } from '../components/StateView';
-import { api, errMsg, type OrderUpdatedEvent, type WorkerLocationEvent } from '../api';
+import { api, errMsg, type OrderDetail, type OrderUpdatedEvent, type WorkerLocationEvent } from '../api';
 import { useApi, useInterval } from '../hooks/useApi';
-import { ORDER_STATUS, WAITING_STATUSES, etaMinutes, fmtKm, haversineKm, money } from '../utils/format';
+import { ORDER_STATUS, WAITING_STATUSES, etaMinutes, fmtKm, fmtTime, haversineKm, money } from '../utils/format';
 import { useSocketEvent } from '../realtime/socket';
 import { confirmCancel } from '../utils/cancel';
 import { useNav } from '../navigation/NavigationContext';
@@ -15,6 +15,18 @@ import { colors, mono, op } from '../theme';
 
 // Realtime (Socket.IO) là chính; hỏi lại server định kỳ để phòng mất kết nối
 const POLL_MS = 15000;
+
+const MODE_LABEL = { instant: 'tức thời', batch: 'theo lô', auto: 'tự động' } as const;
+
+/** Dòng tiến độ tìm thợ: đợt mời, số lời mời đã gửi, giờ hệ thống tự huỷ nếu chưa có thợ */
+function searchingText(order: OrderDetail): string {
+  const s = order.searching;
+  if (order.scheduled_at && !s?.offers_sent) return 'Đơn hẹn giờ: hệ thống sẽ mời thợ trước giờ hẹn';
+  if (!s || s.offers_sent === 0) return 'Đang tìm thợ đang bật nhận đơn gần bạn...';
+  const parts = [`Đợt mời ${Math.max(1, s.rounds)} · đã mời ${s.offers_sent} thợ (ghép ${MODE_LABEL[s.mode] ?? s.mode})`];
+  if (s.deadline_at && !order.scheduled_at) parts.push(`chờ tối đa tới ${fmtTime(s.deadline_at)}`);
+  return parts.join(' · ');
+}
 
 export default function MatchScreen() {
   const { navigate, orderId } = useNav();
@@ -91,8 +103,9 @@ export default function MatchScreen() {
         <View style={styles.info}>
           <Icon name="lightning-bolt" size={14} color={colors.blue500} />
           <Text style={styles.infoText}>
-            Hệ thống chọn thợ tốt nhất dựa trên{' '}
-            <Text style={{ fontWeight: '700' }}>Weighted Scoring</Text>: khoảng cách, đánh giá, độ tin cậy.
+            Hệ thống tự gửi lời mời cho thợ phù hợp nhất theo{' '}
+            <Text style={{ fontWeight: '700' }}>khoảng cách, độ tin cậy, kinh nghiệm</Text>. Ai nhận trước sẽ đến; đông đơn thì
+            hệ thống ghép theo lô (Hungarian) để mọi người đều có thợ gần.
           </Text>
         </View>
 
@@ -107,10 +120,8 @@ export default function MatchScreen() {
             {waiting ? (
               <View style={styles.metaItem}>
                 <PulseDot size={6} color={colors.primary} />
-                <Text style={[styles.metaText, { color: colors.primary, fontWeight: '600' }]}>
-                  {order.offers.total > 0
-                    ? `Đã gửi yêu cầu tới ${order.offers.total} thợ phù hợp, đang chờ nhận đơn`
-                    : 'Đang chờ thợ nhận đơn'}
+                <Text style={[styles.metaText, { color: colors.primary, fontWeight: '600', flexShrink: 1 }]}>
+                  {searchingText(order)}
                 </Text>
               </View>
             ) : (
@@ -137,7 +148,7 @@ export default function MatchScreen() {
           <View style={[styles.card, { borderColor: colors.primary, backgroundColor: op(colors.primary, 0.04) }]}>
             <View style={styles.row}>
               <View>
-                <Avatar name={w.full_name} size={48} />
+                <Avatar name={w.full_name} size={48} uri={w.avatar_url} />
                 <View style={styles.verified}>
                   <Icon name="check" size={10} color="#fff" />
                 </View>
@@ -148,8 +159,9 @@ export default function MatchScreen() {
                   <Text style={[styles.price, { color: colors.primary }]}>{money(order.total_amount)}</Text>
                 </View>
                 <Text style={styles.spec}>
-                  {order.service_name}
-                  {w.experience_years ? ` · ${w.experience_years} năm` : ''}
+                  {w.level.name}
+                  {w.experience_years ? ` · ${w.experience_years} năm kinh nghiệm` : ''}
+                  {w.has_certificate ? ' · có chứng chỉ nghề điện' : ''}
                 </Text>
                 <View style={styles.meta}>
                   <View style={styles.metaItem}>

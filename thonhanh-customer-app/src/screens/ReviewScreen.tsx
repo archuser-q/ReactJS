@@ -75,7 +75,7 @@ export default function ReviewScreen() {
       <Header title="Đánh giá dịch vụ" />
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Avatar name={o.worker.full_name} size={72} />
+          <Avatar name={o.worker.full_name} size={72} uri={o.worker.avatar_url} />
           <View style={{ alignItems: 'center' }}>
             <Text style={styles.name}>{o.worker.full_name}</Text>
             <Text style={styles.sub}>{o.service_name} · {fmtDate(o.completed_at ?? o.created_at)}</Text>

@@ -50,7 +50,7 @@ export default function ProfileScreen() {
       <View style={styles.top}>
         <Text style={styles.title}>Tài khoản</Text>
         <View style={styles.userRow}>
-          <Avatar name={user.full_name} size={56} />
+          <Avatar name={user.full_name} size={56} uri={user.avatar_url} />
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{user.full_name}</Text>
             <Text style={styles.sub} numberOfLines={1}>
@@ -114,9 +114,10 @@ export default function ProfileScreen() {
           <ProfileItem
             label="Thông tin cá nhân"
             icon="account-outline"
-            sub={`${user.full_name} · ${user.phone}`}
+            sub={`${user.full_name} · ${user.phone ?? 'chưa có SĐT'}`}
             onPress={() => navigate('personalInfo')}
           />
+          <ProfileItem label="Đổi mật khẩu" icon="lock-reset" onPress={() => navigate('changePassword')} />
           <ProfileItem
             label="Địa chỉ của tôi"
             icon="map-marker-outline"

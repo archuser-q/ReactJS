@@ -36,6 +36,8 @@ export const colors = {
   blue700: '#1D4ED8',
 
   amber400: '#FBBF24',
+
+  mapBg: '#E9EDF2',
 };
 
 export const GRADIENT = ['#059669', '#10B981'] as const;

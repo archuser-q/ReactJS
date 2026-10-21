@@ -12,8 +12,16 @@ export const REVIEW_TAGS = [
 
 export const FAQS = [
   {
-    q: 'Làm sao để đặt dịch vụ sửa chữa?',
-    a: 'Vào Trang chủ, chọn dịch vụ, chọn địa chỉ đã lưu và thời gian (ngay hoặc đặt lịch hẹn) rồi bấm "Tìm thợ phù hợp".',
+    q: 'Làm sao để đặt thợ điện?',
+    a: 'Vào Trang chủ, chọn dịch vụ, chọn địa chỉ đã lưu, chụp ảnh chỗ hỏng (nếu có) và chọn thời gian rồi bấm "Tìm thợ phù hợp". Hệ thống tự mời thợ phù hợp nhất ở gần, thợ nhận đơn là bạn thấy ngay.',
+  },
+  {
+    q: 'Đặt lịch hẹn được giờ nào?',
+    a: 'Lịch hẹn cần cách hiện tại ít nhất 60 phút, trong khung 7:00 – 21:00. Sự cố điện cần xử lý gấp thì chọn "Ngay bây giờ".',
+  },
+  {
+    q: 'Thợ có kiểm tra an toàn điện không?',
+    a: 'Có. Trước khi sửa, thợ phải xác nhận trên app đã ngắt nguồn, thử điện và mang đồ bảo hộ. Bạn xem được thời điểm xác nhận và ảnh trước / sau khi sửa trong màn Theo dõi đơn.',
   },
   {
     q: 'Tôi có thể hủy đơn đã đặt không?',

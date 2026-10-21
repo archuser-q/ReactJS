@@ -17,7 +17,8 @@ export type ScreenName =
   | 'addresses'
   | 'help'
   | 'support'
-  | 'notifications';
+  | 'notifications'
+  | 'changePassword';
 
 /** Nút "Quay lại" (và nút back của Android) sẽ đi về màn hình này – giống luồng trong bản thiết kế */
 export const BACK_MAP: Partial<Record<ScreenName, ScreenName>> = {
@@ -36,6 +37,7 @@ export const BACK_MAP: Partial<Record<ScreenName, ScreenName>> = {
   help: 'profile',
   support: 'profile',
   notifications: 'home',
+  changePassword: 'profile',
 };
 
 export type NavParams = {

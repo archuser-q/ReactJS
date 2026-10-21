@@ -12,7 +12,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import { SERVER_URL } from '../api';
+import { serverUrl } from '../config/env';
 
 type Handler = (payload: any) => void;
 
@@ -31,7 +31,7 @@ function dispatch(event: string, payload?: unknown) {
 
 export function connectSocket(token: string) {
   disconnectSocket();
-  socket = io(SERVER_URL, {
+  socket = io(serverUrl(), {
     auth: { token },
     transports: ['websocket'],
     reconnection: true,

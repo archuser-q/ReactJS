@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppMap, type MapMarker } from '../components/map/AppMap';
+import { mediaUri } from '../config/env';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { GradientButton } from '../components/GradientButton';
@@ -29,38 +30,25 @@ import { colors, common, shadowSm } from '../theme';
 // Realtime (Socket.IO) là chính; hỏi lại server định kỳ để phòng mất kết nối
 const POLL_MS = 15000;
 
-const BLOCKS: number[][] = [
-  [20, 40, 120, 80], [160, 40, 80, 100], [260, 20, 95, 120],
-  [20, 140, 80, 60], [120, 160, 100, 60], [240, 150, 120, 80],
-  [20, 220, 140, 80], [180, 220, 80, 80], [280, 220, 95, 80],
-];
-
-function MapView({ height }: { height: number }) {
+/** Bản đồ thật: nhà khách + vị trí thợ (khi đang tới), tự căn khung nhìn */
+function TrackMap({ markers, topInset }: { markers: MapMarker[]; topInset: number }) {
+  const key = markers.map((m) => m.id).join('-');
   return (
-    <Svg width="100%" height={height} viewBox="0 0 375 320" preserveAspectRatio="xMidYMid slice">
-      <Rect x="0" y="0" width="375" height="320" fill="#E8EDF3" />
-      {BLOCKS.map(([x, y, w, h], i) => (
-        <Rect key={i} x={x} y={y} width={w} height={h} rx="4" fill="#DAE0E8" />
-      ))}
-      <Rect x="0" y="130" width="375" height="16" fill="#F4F6F8" />
-      <Rect x="0" y="210" width="375" height="16" fill="#F4F6F8" />
-      <Rect x="140" y="0" width="16" height="320" fill="#F4F6F8" />
-      <Rect x="250" y="0" width="16" height="320" fill="#F4F6F8" />
-      <Path
-        d="M 90 270 Q 140 270 140 210 Q 140 138 260 138"
-        stroke={colors.primary}
-        strokeWidth="3"
-        fill="none"
-        strokeDasharray="6 4"
-      />
-      <Circle cx="200" cy="138" r="20" fill={colors.primary} fillOpacity="0.2" />
-      <Circle cx="200" cy="138" r="14" fill={colors.primary} />
-      <Circle cx="200" cy="138" r="8" fill="#fff" />
-      <Circle cx="90" cy="270" r="12" fill="#111827" />
-      <Circle cx="90" cy="270" r="6" fill="#fff" />
-    </Svg>
+    <AppMap
+      style={StyleSheet.absoluteFill}
+      data={{
+        markers,
+        line: markers.length > 1,
+        fit: true,
+        fitKey: key,
+        zoom: 15,
+        padding: { top: topInset + 70, bottom: 40, left: 40, right: 40 },
+      }}
+    />
   );
 }
+
+const QUOTE_STATUS: Record<string, string> = { approved: 'đã duyệt', rejected: 'đã từ chối', cancelled: 'thợ đã rút', pending: 'chờ duyệt' };
 
 /** Dòng chữ trên viên thuốc ở bản đồ */
 function pillText(o: OrderDetail, km: number | null): string {
@@ -102,6 +90,7 @@ export default function TrackScreen() {
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueText, setIssueText] = useState('');
+  const [viewing, setViewing] = useState<string | null>(null);
 
   const o = q.data?.order;
   const live = !!o && o.status !== 'completed' && o.status !== 'cancelled';
@@ -141,6 +130,10 @@ export default function TrackScreen() {
     t.worker_lat != null && t.worker_lng != null
       ? haversineKm(t.worker_lat, t.worker_lng, t.destination_lat, t.destination_lng)
       : null;
+  const markers: MapMarker[] = [{ id: 'c', lat: t.destination_lat, lng: t.destination_lng, kind: 'customer' }];
+  if (t.worker_lat != null && t.worker_lng != null && live) markers.unshift({ id: 'w', lat: t.worker_lat, lng: t.worker_lng, kind: 'worker' });
+  const before = o.photos.filter((p) => p.kind === 'before');
+  const after = o.photos.filter((p) => p.kind === 'after');
   const steps = orderSteps(o.status);
   const cancelled = o.status === 'cancelled';
   const pendingQuotes = o.extra_quotes.filter((x) => x.status === 'pending');
@@ -222,13 +215,16 @@ export default function TrackScreen() {
             : `Đã hết hạn (${fmtDate(o.warranty.until)})`,
         }]
       : []),
+    ...o.extra_quotes
+      .filter((x) => x.status !== 'pending')
+      .map((x) => ({ label: 'Phát sinh', value: `${x.description} · ${money(x.amount)} (${QUOTE_STATUS[x.status] ?? x.status})` })),
     ...(cancelled && o.cancel_reason ? [{ label: 'Lý do hủy', value: o.cancel_reason }] : []),
   ];
 
   return (
     <Screen noInset>
       <View style={{ height: mapH }}>
-        <MapView height={mapH} />
+        <TrackMap markers={markers} topInset={insets.top} />
         <View style={[styles.mapBar, { top: insets.top + 12 }]}>
           <Pressable onPress={() => navigate('home')} style={styles.circleBtn}>
             <Icon name="arrow-left" size={16} color={colors.text} />
@@ -259,12 +255,15 @@ export default function TrackScreen() {
           {o.worker ? (
             <>
               <View>
-                <Avatar name={o.worker.full_name} size={48} />
+                <Avatar name={o.worker.full_name} size={48} uri={o.worker.avatar_url} />
                 {live && <View style={styles.online} />}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.wName}>{o.worker.full_name}</Text>
-                <Text style={styles.wSub}>{o.service_name} · {o.code}</Text>
+                <Text style={styles.wSub}>
+                  {o.worker.level?.name ?? 'Thợ'}
+                  {o.worker.has_certificate ? ' · có chứng chỉ' : ''} · {o.code}
+                </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
                   <Icon name="shield-check" size={12} color={colors.emerald500} />
                   <Text style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>{Math.round(o.worker.trust_score * 100)}</Text>
@@ -286,6 +285,11 @@ export default function TrackScreen() {
                 <Text style={styles.wName}>{cancelled ? 'Đơn đã hủy' : 'Đang tìm thợ phù hợp...'}</Text>
                 <Text style={styles.wSub}>{o.service_name} · {o.code}</Text>
               </View>
+              {!cancelled && (
+                <Pressable onPress={() => navigate('match', { orderId: o.id })} style={styles.chatBtn}>
+                  <Icon name="account-search-outline" size={18} color={colors.primary} />
+                </Pressable>
+              )}
             </>
           )}
         </View>
@@ -321,6 +325,36 @@ export default function TrackScreen() {
             })}
           </View>
         )}
+
+        {/* Kiểm tra an toàn điện (thợ xác nhận trên app thợ trước khi sửa) */}
+        {o.safety_checked_at && (
+          <View style={styles.safety}>
+            <Icon name="shield-check-outline" size={16} color={colors.emerald600} />
+            <Text style={styles.safetyText}>
+              Thợ đã kiểm tra an toàn điện (ngắt nguồn, thử điện, đồ bảo hộ) lúc {fmtDateTime(o.safety_checked_at)}
+            </Text>
+          </View>
+        )}
+
+        {/* Ảnh: khách gửi khi đặt, thợ chụp trước / sau khi sửa */}
+        {[
+          { title: 'Ảnh bạn gửi khi đặt', urls: o.image_urls },
+          { title: 'Ảnh trước khi sửa', urls: before.map((p) => p.url) },
+          { title: 'Ảnh sau khi sửa', urls: after.map((p) => p.url) },
+        ]
+          .filter((g) => g.urls.length > 0)
+          .map((g) => (
+            <View key={g.title} style={{ marginTop: 16 }}>
+              <Text style={common.label}>{g.title}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {g.urls.map((u, i) => (
+                  <Pressable key={u + i} onPress={() => setViewing(u)}>
+                    <Image source={{ uri: mediaUri(u) }} style={styles.photo} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ))}
 
         {/* Báo giá phát sinh chờ duyệt */}
         {pendingQuotes.map((x) => (
@@ -447,6 +481,14 @@ export default function TrackScreen() {
         )}
 
       </ScrollView>
+
+      {/* Xem ảnh lớn */}
+      <Modal visible={!!viewing} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
+        <Pressable style={styles.viewer} onPress={() => setViewing(null)}>
+          {viewing ? <Image source={{ uri: mediaUri(viewing) }} style={styles.viewerImg} resizeMode="contain" /> : null}
+          <Text style={styles.viewerHint}>Chạm để đóng</Text>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -491,6 +533,15 @@ const styles = StyleSheet.create({
   stepLabel: { fontSize: 10, fontWeight: '500', marginTop: 4, textAlign: 'center' },
   details: { backgroundColor: colors.gray50, borderRadius: 16, padding: 16, gap: 10 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  safety: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 16, padding: 12, borderRadius: 12,
+    backgroundColor: colors.emerald50,
+  },
+  safetyText: { flex: 1, fontSize: 12, color: colors.emerald600, lineHeight: 17 },
+  photo: { width: 96, height: 96, borderRadius: 12, backgroundColor: colors.gray100 },
+  viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
+  viewerImg: { width: '100%', height: '80%' },
+  viewerHint: { color: '#fff', opacity: 0.7, marginTop: 12, fontSize: 12 },
   quote: {
     backgroundColor: colors.blue50, borderRadius: 16, padding: 14, marginBottom: 12,
     borderWidth: 1, borderColor: colors.blue100,

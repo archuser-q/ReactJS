@@ -13,7 +13,15 @@ export type User = {
   created_at: string;
 };
 
-export type AuthResult = { token: string; user: User };
+export type AuthResult = { token: string; user: User; is_new?: boolean };
+
+/** Cấu hình đăng nhập Google / Facebook do backend trả (null = máy chủ chưa bật) */
+export type ProvidersConfig = {
+  google: { web_client_id: string | null; android_client_id: string | null; ios_client_id: string | null } | null;
+  facebook: { app_id: string } | null;
+  password_reset_by_email: boolean;
+  smtp_configured: boolean;
+};
 
 /** Danh sách có phân trang — giống bên dashboard: { items, total, page, pageSize } */
 export type Paginated<T> = { items: T[]; total: number; page: number; pageSize: number };
@@ -61,6 +69,9 @@ export type OrderStatus =
 
 export type OrderGroup = 'active' | 'completed' | 'cancelled';
 
+/** Hạng thợ theo số đơn hoàn thành + điểm đánh giá (chỉ để hiển thị) */
+export type WorkerLevel = { key: 'dong' | 'bac' | 'vang' | 'kim_cuong'; name: string; completed: number };
+
 export type WorkerBrief = {
   id: number;
   full_name: string;
@@ -71,6 +82,9 @@ export type WorkerBrief = {
   trust_score: number; // 0..1
   total_jobs: number;
   experience_years: number;
+  /** Chỉ có ở chi tiết đơn */
+  level?: WorkerLevel;
+  has_certificate?: boolean;
 };
 
 export type OrderItem = {
@@ -86,6 +100,7 @@ export type OrderItem = {
   description: string | null;
   image_urls: string[];
   scheduled_at: string | null;
+  /** Chế độ ghép thực tế hệ thống đã dùng (khách không chọn) */
   matching_mode: 'instant' | 'batch';
   estimated_price: number;
   extra_amount: number;
@@ -98,6 +113,8 @@ export type OrderItem = {
   cancelled_at: string | null;
   cancel_reason: string | null;
   warranty_until: string | null;
+  /** Lúc thợ xác nhận kiểm tra an toàn điện trước khi sửa */
+  safety_checked_at: string | null;
   has_review: boolean;
   worker: WorkerBrief | null;
 };
@@ -107,9 +124,23 @@ export type ExtraQuote = {
   description: string;
   amount: number;
   image_urls: string[];
-  status: 'pending' | 'approved' | 'rejected';
+  /** cancelled = thợ đã rút lại báo giá */
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   created_at: string;
   responded_at: string | null;
+};
+
+/** Ảnh trước / sau khi sửa do thợ chụp */
+export type OrderPhoto = { id: number; kind: 'before' | 'after'; url: string; created_at: string };
+
+/** Tiến độ tìm thợ của bộ điều phối (khi đơn đang ở trạng thái matching) */
+export type SearchingInfo = {
+  mode: 'instant' | 'batch' | 'auto';
+  rounds: number;
+  offers_sent: number;
+  last_candidates: number | null;
+  deadline_at: string;
+  last_attempt_at: string | null;
 };
 
 export type PaymentMethod = 'cash' | 'momo' | 'vnpay';
@@ -135,6 +166,8 @@ export type Warranty = {
 
 export type OrderDetail = OrderItem & {
   offers: { total: number; waiting: number };
+  searching: SearchingInfo | null;
+  photos: OrderPhoto[];
   history: { from_status: OrderStatus | null; to_status: OrderStatus; note: string | null; created_at: string }[];
   extra_quotes: ExtraQuote[];
   payments: Payment[];
@@ -178,6 +211,8 @@ export type WorkerPublic = {
   trust_score: number;
   total_jobs: number;
   verified: boolean;
+  has_certificate: boolean;
+  level: WorkerLevel;
   skills: string[];
   recent_reviews: { rating: number; comment: string | null; customer_name: string; created_at: string }[];
 };

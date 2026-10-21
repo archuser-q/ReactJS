@@ -23,6 +23,8 @@ import AddressesScreen from '../screens/AddressesScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import SupportContactScreen from '../screens/SupportContactScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import { usePushRegistration } from '../hooks/usePushRegistration';
 
 const SCREENS: Record<ScreenName, ComponentType> = {
   home: HomeScreen,
@@ -41,6 +43,7 @@ const SCREENS: Record<ScreenName, ComponentType> = {
   help: HelpCenterScreen,
   support: SupportContactScreen,
   notifications: NotificationsScreen,
+  changePassword: ChangePasswordScreen,
 };
 
 /** Các tab ở thanh dưới tự chọn đơn đang chạy, không giữ đơn cũ */
@@ -52,6 +55,8 @@ function LoggedInApp() {
   const [orderId, setOrderId] = useState<number | null>(null);
   const [backOverride, setBackOverride] = useState<{ from: ScreenName; to: ScreenName } | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  // Đăng ký nhận thông báo đẩy (chỉ bản build, Expo Go bỏ qua)
+  usePushRegistration(true);
 
   const navigate = useCallback((s: ScreenName, params?: NavParams) => {
     if (params?.service) setService(params.service);

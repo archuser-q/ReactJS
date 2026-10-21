@@ -1,17 +1,25 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { api, setOnUnauthorized, setToken, type AuthResult, type User } from '../api';
+import { loadServerOverride } from '../config/env';
 import { connectSocket, disconnectSocket } from '../realtime/socket';
+import { unregisterPush } from '../hooks/usePushRegistration';
 
 const TOKEN_KEY = 'thonhanh_token';
 
 type AuthValue = {
   user: User | null;
+  /** Tài khoản đã có mật khẩu chưa (đăng nhập Google/Facebook thì chưa) */
+  hasPassword: boolean;
   booting: boolean; // đang đọc token đã lưu lúc mở app
-  login: (phone: string, password: string) => Promise<void>;
-  register: (data: { full_name: string; phone: string; password: string; email?: string | null }) => Promise<void>;
+  /** identifier = email hoặc số điện thoại */
+  login: (identifier: string, password: string) => Promise<void>;
+  register: (data: { full_name: string; email: string; phone: string; password: string }) => Promise<void>;
+  /** Dùng cho đăng nhập Google / Facebook */
+  loginWithResult: (res: AuthResult) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (u: User) => void;
+  setHasPassword: (v: boolean) => void;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -30,27 +38,31 @@ async function saveToken(t: string | null) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
+  const [hasPassword, setHasPassword] = useState(true);
   const [booting, setBooting] = useState(true);
 
   const logout = useCallback(async () => {
+    await unregisterPush();
     await saveToken(null);
     setUserState(null);
   }, []);
 
-  // Mở app: đọc token cũ, gọi /auth/me để kiểm tra còn hạn
+  // Mở app: đọc địa chỉ máy chủ + token cũ, gọi /auth/me để kiểm tra còn hạn
   useEffect(() => {
     setOnUnauthorized(() => {
-      void logout();
+      void saveToken(null).then(() => setUserState(null));
     });
     (async () => {
       try {
+        await loadServerOverride();
         const saved = await SecureStore.getItemAsync(TOKEN_KEY).catch(() => null);
         if (saved) {
           setToken(saved);
           const me = await api.me();
-          if (me.role === 'customer') {
+          if (me.user.role === 'customer') {
             connectSocket(saved);
-            setUserState(me);
+            setUserState(me.user);
+            setHasPassword(me.has_password);
           } else await saveToken(null);
         }
       } catch {
@@ -60,32 +72,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })();
     return () => setOnUnauthorized(null);
-  }, [logout]);
+  }, []);
 
-  const applyAuth = useCallback(async (res: AuthResult) => {
+  const loginWithResult = useCallback(async (res: AuthResult) => {
     if (res.user.role !== 'customer') {
       throw new Error('Tài khoản này không phải tài khoản khách hàng');
     }
     await saveToken(res.token);
     setUserState(res.user);
+    // Tài khoản tạo bằng Google/Facebook chưa có mật khẩu
+    api.me().then((me) => setHasPassword(me.has_password)).catch(() => {});
   }, []);
 
-  /** phone: số điện thoại (hoặc email) */
   const login = useCallback(
-    async (phone: string, password: string) => applyAuth(await api.login(phone, password)),
-    [applyAuth],
+    async (identifier: string, password: string) => loginWithResult(await api.login(identifier, password)),
+    [loginWithResult],
   );
 
   // Đăng ký xong backend trả luôn token -> vào app ngay
   const register = useCallback(
-    async (data: { full_name: string; phone: string; password: string; email?: string | null }) =>
-      applyAuth(await api.register(data)),
-    [applyAuth],
+    async (data: { full_name: string; email: string; phone: string; password: string }) =>
+      loginWithResult(await api.register(data)),
+    [loginWithResult],
   );
 
   const value = useMemo(
-    () => ({ user, booting, login, register, logout, setUser: setUserState }),
-    [user, booting, login, register, logout],
+    () => ({ user, hasPassword, booting, login, register, loginWithResult, logout, setUser: setUserState, setHasPassword }),
+    [user, hasPassword, booting, login, register, loginWithResult, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

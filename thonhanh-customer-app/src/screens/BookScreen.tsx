@@ -1,21 +1,27 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { GradientButton } from '../components/GradientButton';
 import { Icon } from '../components/Icon';
 import { Header, Screen } from '../components/Screen';
 import { StateView } from '../components/StateView';
-import { api, errMsg } from '../api';
+import { api, errMsg, uploadImage, type LocalImage } from '../api';
+import { useAuth } from '../auth/AuthContext';
+import { pickImages } from '../utils/pickImage';
 import { useApi } from '../hooks/useApi';
 import { money, vnSlot } from '../utils/format';
 import { useNav } from '../navigation/NavigationContext';
 import { colors, common, op } from '../theme';
 
 const DAY_LABELS = ['Hôm nay', 'Ngày mai', 'Ngày kia'];
-const HOURS = Array.from({ length: 14 }, (_, i) => 7 + i); // 07:00 – 20:00
-const MIN_LEAD_MS = 30 * 60 * 1000; // backend yêu cầu hẹn trước ít nhất 30 phút
+const HOURS = Array.from({ length: 15 }, (_, i) => 7 + i); // 07:00 – 21:00 (khung giờ backend nhận lịch hẹn)
+const MIN_LEAD_MS = 60 * 60 * 1000; // backend yêu cầu hẹn trước ít nhất 60 phút; cần gấp thì chọn "Ngay bây giờ"
+const MAX_PHOTOS = 6;
 
 export default function BookScreen() {
   const { navigate, service } = useNav();
+  const { user } = useAuth();
+  // Ảnh tình trạng: giữ ảnh gốc để xem trước, tải lên khi bấm đặt
+  const [photos, setPhotos] = useState<LocalImage[]>([]);
   const addresses = useApi(() => api.listAddresses(), []);
   const [addressId, setAddressId] = useState<number | null>(null);
   const [pickAddress, setPickAddress] = useState(false);
@@ -48,7 +54,20 @@ export default function BookScreen() {
     );
   }
 
+  const addPhotos = async () => {
+    const picked = await pickImages({ max: MAX_PHOTOS - photos.length });
+    if (picked.length) setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+  };
+
   const submit = async () => {
+    // Thợ cần SĐT để liên hệ khi đến; tài khoản Google/Facebook có thể chưa có
+    if (!user?.phone) {
+      Alert.alert('Cần số điện thoại', 'Vui lòng thêm số điện thoại để thợ liên hệ khi đến.', [
+        { text: 'Để sau', style: 'cancel' },
+        { text: 'Thêm ngay', onPress: () => navigate('personalInfo', { returnTo: 'book' }) },
+      ]);
+      return;
+    }
     if (!address) {
       Alert.alert('Thiếu địa chỉ', 'Vui lòng thêm địa chỉ để thợ biết nơi đến.');
       return;
@@ -56,19 +75,23 @@ export default function BookScreen() {
     let scheduledAt: string | null = null;
     if (when === 1) {
       if (hour === null || !hourOk(hour)) {
-        Alert.alert('Chọn giờ hẹn', 'Vui lòng chọn khung giờ (sau hiện tại ít nhất 30 phút).');
+        Alert.alert('Chọn giờ hẹn', 'Vui lòng chọn khung giờ (sau hiện tại ít nhất 60 phút). Cần thợ gấp thì chọn "Ngay bây giờ".');
         return;
       }
       scheduledAt = vnSlot(day, hour).iso;
     }
     setSubmitting(true);
     try {
+      // Tải ảnh tình trạng lên trước (POST /api/uploads), rồi gửi URL kèm đơn — thợ xem được trong lời mời
+      const imageUrls: string[] = [];
+      for (const p of photos) imageUrls.push(await uploadImage(p));
+      // Không gửi chế độ ghép: hệ thống tự chọn theo cấu hình của admin
       const order = await api.createOrder({
         service_id: service.id,
         address_id: address.id,
         description: desc.trim() || null,
         scheduled_at: scheduledAt,
-        matching_mode: 'instant',
+        image_urls: imageUrls,
       });
       navigate('match', { orderId: order.id });
     } catch (e) {
@@ -223,14 +246,29 @@ export default function BookScreen() {
 
           {/* Ảnh */}
           <View>
-            <Text style={common.label}>Ảnh mô tả</Text>
-            <Pressable
-              style={styles.photo}
-              onPress={() => Alert.alert('Thông báo', 'Tải ảnh sẽ dùng được khi backend có API upload ảnh.')}
-            >
-              <Icon name="camera-outline" size={24} color={colors.gray400} />
-              <Text style={{ fontSize: 12, color: colors.gray400 }}>Thêm ảnh</Text>
-            </Pressable>
+            <Text style={common.label}>Ảnh tình trạng ({photos.length}/{MAX_PHOTOS})</Text>
+            {photos.length > 0 && (
+              <View style={styles.thumbs}>
+                {photos.map((p, i) => (
+                  <View key={p.uri + i}>
+                    <Image source={{ uri: p.uri }} style={styles.thumb} />
+                    <Pressable
+                      style={styles.thumbX}
+                      hitSlop={6}
+                      onPress={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      <Icon name="close" size={12} color="#fff" />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+            {photos.length < MAX_PHOTOS && (
+              <Pressable style={styles.photo} onPress={addPhotos}>
+                <Icon name="camera-outline" size={24} color={colors.gray400} />
+                <Text style={{ fontSize: 12, color: colors.gray400 }}>Chụp / chọn ảnh chỗ hỏng (giúp thợ mang đúng vật tư)</Text>
+              </Pressable>
+            )}
           </View>
 
           {/* Giá */}
@@ -289,6 +327,12 @@ const styles = StyleSheet.create({
   photo: {
     paddingVertical: 16, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.gray200,
     borderRadius: 16, alignItems: 'center', gap: 6,
+  },
+  thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  thumb: { width: 72, height: 72, borderRadius: 12, backgroundColor: colors.gray100 },
+  thumbX: {
+    position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: 'rgba(17,24,39,0.8)', alignItems: 'center', justifyContent: 'center',
   },
   price: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16,

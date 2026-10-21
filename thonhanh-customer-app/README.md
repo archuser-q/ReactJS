@@ -1,117 +1,103 @@
-# Thợ Nhanh – App Khách hàng (React Native / Expo)
+# Thợ Nhanh – App Khách hàng (React Native / Expo) · v2.0
 
-Frontend **App Khách hàng**, dựng theo bản thiết kế Figma Make và **gắn backend Node.js + Express**
-(repo `nodejs`, nhóm API `/api/customer`, chung database PostgreSQL với web quản trị).
-Mọi dữ liệu (dịch vụ, đơn, thợ, chat, địa chỉ, thanh toán...) lấy qua API trong `src/api/`;
-theo dõi thợ, chat và thông báo cập nhật realtime qua **Socket.IO** (`src/realtime/`).
+Frontend **App Khách hàng**, dựng theo bản thiết kế Figma Make, nối với **backend Node.js chung của nhóm**
+(repo `nodejs`, nhóm API `/api/customer`) và **đồng bộ với App Thợ v2** (thành viên B): cùng CSDL, cùng bộ điều phối
+ghép cặp, cùng kênh realtime Socket.IO, cùng API tải ảnh và bộ bản đồ.
 
 - Expo SDK 57 · React Native 0.86 · TypeScript
-- Không dùng thư viện điều hướng ngoài: một router nhỏ tự viết (giống luồng `useState` của bản thiết kế)
+- Phạm vi: **dịch vụ thợ điện** (Sửa chữa điện · Lắp đặt thiết bị điện · Đồ điện gia dụng · Đi dây & tủ điện)
+- Đăng nhập email / SĐT + mật khẩu, Google, Facebook; quên mật khẩu qua mã email; đổi mật khẩu
+- Đặt đơn có **ảnh tình trạng**, giờ hẹn ≥ 60 phút (7:00–21:00); hệ thống tự ghép thợ (khách không chọn chế độ)
+- Theo dõi thợ trên **bản đồ thật** (MapLibre + OpenFreeMap, dự phòng Leaflet + OpenStreetMap, miễn phí, không cần API key)
+- Xem tiến độ tìm thợ, hạng thợ, chứng chỉ, kiểm tra an toàn điện, **ảnh trước / sau khi sửa**; chat có ảnh; thông báo đẩy (bản build)
 
 ---
 
 ## 1. Chuẩn bị (làm 1 lần)
 
-1. Cài **Node.js bản LTS** (https://nodejs.org) – kiểm tra: `node -v`
-2. Trên điện thoại cài app **Expo Go** (App Store / Google Play)
-3. Điện thoại và máy tính phải **cùng mạng Wi-Fi**
+1. Cài **Node.js bản LTS** – kiểm tra: `node -v`
+2. Trên điện thoại cài app **Expo Go**
+3. Điện thoại và máy tính **cùng mạng Wi-Fi**
 
 ## 2. Chạy backend trước
 
-Trong thư mục backend `nodejs` (cần PostgreSQL + PostGIS):
+Trong thư mục backend `nodejs` (xem `CLAUDE.md` của repo đó):
+
+```bash
+docker compose up -d --build          # cách nhanh nhất: API + PostgreSQL/PostGIS + dữ liệu demo
+docker compose --profile bots up -d   # (tuỳ chọn) thợ ảo tự nhận và làm đơn khi chưa có app thợ trong tay
+```
+
+Không dùng Docker:
 
 ```bash
 npm install
-cp .env.example .env              # sửa DATABASE_URL, JWT_SECRET
-npm run migrate up                # tạo bảng
-npm run seed:dev                  # (dev-tools) dữ liệu mẫu: dịch vụ, 40 thợ quanh Hà Nội, khách demo
-npm run dev                       # http://localhost:3000
+cp .env.example .env                  # sửa DATABASE_URL
+npm run migrate up
+npm run seed:demo
+npm run dev                           # hoặc: node src/server.js
+npm run bots                          # (tuỳ chọn, terminal khác) thợ ảo
 ```
 
-Tài khoản khách demo: **0912345678 / 123456** (hoặc tự đăng ký trong app).
-Backend nghe ở `0.0.0.0` nên điện thoại cùng Wi-Fi gọi được.
+Tài khoản khách demo: **khach@thonhanh.vn / 12345678** (SĐT 0912000001). Thợ demo để mở app thợ: `tho@thonhanh.vn / 12345678`.
 
 ## 3. Chạy app
 
-Mở terminal tại thư mục project (thư mục có file `package.json`):
-
 ```bash
-cp .env.example .env        # sửa EXPO_PUBLIC_API_URL = http://<IP máy chạy backend>:3000
 npm install
 npx expo install --fix
 npx expo start -c
 ```
 
-- Xem IP máy: Windows `ipconfig` (IPv4 Address), Linux/macOS `ip a` / `ifconfig`.
-- Đổi `.env` xong phải chạy lại `npx expo start -c`.
-- Màn đăng nhập hiện địa chỉ máy chủ đang dùng ở cuối trang để kiểm tra.
-- Windows: nếu điện thoại không gọi được backend, mở cổng 3000 trong Windows Firewall.
+Quét mã QR bằng Expo Go (Android) hoặc Camera (iPhone).
 
-- `npx expo install --fix` đảm bảo mọi thư viện đúng phiên bản với Expo Go.
-- Khi `expo start` chạy sẽ hiện **mã QR** trong terminal:
-  - **Android**: mở Expo Go → *Scan QR code* → quét mã.
-  - **iPhone**: mở app **Camera** → quét mã → bấm thông báo mở bằng Expo Go.
+**Địa chỉ máy chủ:** app tự dùng IP của máy đang chạy Expo, cổng 3000 — không cần sửa `.env` khi đổi Wi-Fi.
+Nếu backend chạy ở máy khác: ở màn Đăng nhập bấm **"Máy chủ … · Đổi"**, nhập `IP:3000`, bấm "Kiểm tra & lưu"
+(hoặc đặt `EXPO_PUBLIC_API_URL` trong `.env`, xem `.env.example`).
 
-Lưu code là app tự reload trên điện thoại.
+## 4. Thử luồng đầy đủ với app thợ
 
-## 4. Test luồng khi chưa có app thợ
+1. Đăng nhập app khách bằng tài khoản demo, chọn dịch vụ, chụp ảnh chỗ hỏng, bấm **Tìm thợ phù hợp**.
+2. Thợ nhận đơn bằng một trong các cách:
+   - mở **app thợ** (repo ReactJS, thư mục `thonhanh-worker-app`), đăng nhập `tho@thonhanh.vn`, bật nhận đơn;
+   - hoặc bật **thợ ảo**: `docker compose --profile bots up -d` / `npm run bots`.
+3. App khách tự cập nhật qua Socket.IO: thợ nhận đơn → đang tới (vị trí trên bản đồ) → đã đến → kiểm tra an toàn → đang sửa
+   (báo giá phát sinh để duyệt, ảnh trước/sau) → hoàn thành → thanh toán → đánh giá.
 
-Đặt đơn xong, backend chạy thuật toán ghép cặp (Weighted Scoring) và gửi đề xuất cho tối đa 5 thợ phù hợp;
-đơn ở trạng thái "Đang tìm thợ". Giả lập thợ bằng script trong thư mục `dev-tools/` của backend (không thuộc phần app khách) (mã đơn xem ở app, dạng `TN261017000012`,
-dùng id `12` cũng được):
-
-```bash
-npm run simulate -- TN261017000012 accept          # thợ xếp hạng cao nhất nhận đơn
-npm run simulate -- TN261017000012 on_the_way
-npm run simulate -- TN261017000012 move            # thợ đi thêm 40% quãng đường (chạy vài lần)
-npm run simulate -- TN261017000012 msg Em đang tới ạ
-npm run simulate -- TN261017000012 arrived
-npm run simulate -- TN261017000012 in_progress
-npm run simulate -- TN261017000012 quote 50000 Thay van khoá
-npm run simulate -- TN261017000012 completed
-npm run simulate -- TN261017000012 confirm-cash    # nếu khách chọn tiền mặt
-npm run simulate -- TN261017000012 auto            # chạy liền accept → ... → in_progress
-```
-
-App cập nhật ngay qua Socket.IO (vẫn hỏi lại server 15 giây/lần phòng khi mất kết nối).
-Thanh toán MoMo/VNPay đang là sandbox giả lập: chỉ chạy khi backend để `NODE_ENV` khác `production`.
+Đóng vai khách bằng script (không cần điện thoại): `npm run demo:customer -- order` trong thư mục backend.
 
 ## 5. Lỗi thường gặp
 
 | Lỗi | Cách xử lý |
 |---|---|
-| Điện thoại không kết nối được | Chạy `npx expo start --tunnel` (lần đầu sẽ hỏi cài `@expo/ngrok`, chọn Yes). Hoặc tắt VPN / kiểm tra cùng Wi-Fi. |
-| "Project is incompatible with this version of Expo Go" | Expo Go đã lên SDK mới hơn: `npx expo install expo@latest` rồi `npx expo install --fix`. |
-| Lỗi lạ sau khi đổi thư viện | `npx expo start -c` (xóa cache). |
-| "Không kết nối được máy chủ" | Kiểm tra `EXPO_PUBLIC_API_URL` đúng IP LAN + cổng 3000, backend đang chạy, cùng Wi-Fi, firewall mở cổng 3000. |
-| Đăng nhập báo không phải tài khoản khách | Tài khoản thợ/admin không dùng được app này, đăng ký tài khoản mới. |
-| Đặt đơn mãi "Đang tìm thợ", 0 thợ | Chưa có thợ online gần địa chỉ (bán kính theo cấu hình ghép cặp, mặc định 10 km). Chạy `npm run seed:dev` hoặc dùng `simulate ... accept` (tự lấy thợ gần nhất). |
-| Ô nhập chữ bị bàn phím che (Android) | Báo lại để chỉnh `KeyboardAvoidingView` trong `src/navigation/CustomerApp.tsx`. |
-
-Muốn xem thử không cần điện thoại: cài Android Studio / Xcode rồi bấm `a` (Android) hoặc `i` (iOS) trong terminal đang chạy Expo.
+| "Không kết nối được máy chủ" | Backend đang chạy? Cùng Wi-Fi? Windows: mở cổng 3000 trong Firewall (`New-NetFirewallRule -DisplayName "Node 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow`, PowerShell quyền Admin). Hoặc đổi địa chỉ ở màn Đăng nhập. |
+| iPhone vẫn không gọi được backend | Cài đặt → Expo Go → bật **Mạng cục bộ**. |
+| `EADDRINUSE :3000` khi chạy backend | Đang có server khác giữ cổng: `npx kill-port 3000` rồi chạy lại. |
+| Đặt đơn báo cần số điện thoại | Tài khoản Google/Facebook chưa có SĐT: Tài khoản → Thông tin cá nhân → thêm SĐT. |
+| Đơn mãi "Đang tìm thợ" rồi tự huỷ | Chưa có thợ đang bật nhận đơn gần đó: mở app thợ và bật nhận đơn, hoặc bật thợ ảo. Đơn đặt ngay chờ tối đa 15 phút (`DISPATCH_MAX_WAIT_MINUTES`). |
+| Nút Google / Facebook báo "chưa bật" | Expo Go không nhận kết quả đăng nhập Google/Facebook; cần development build và cấu hình `GOOGLE_*` / `FACEBOOK_*` ở backend. Dùng email để demo. |
+| Không nhận thông báo đẩy | Expo Go không hỗ trợ push (SDK 53+). Thông báo vẫn đến qua Socket.IO khi app đang mở. Push cần development build + `PUSH_ENABLED=true`. |
+| "Project is incompatible with this version of Expo Go" | `npx expo install expo@latest` rồi `npx expo install --fix`. |
 
 ## 6. Cấu trúc thư mục
 
 ```
 App.tsx                      Điểm vào (SafeAreaProvider + AuthProvider)
 src/
+  config/env.ts              Địa chỉ máy chủ (tự nhận / .env / nhập trong app), sửa URL ảnh /media
   api/
-    client.ts                fetch + token Bearer + timeout + lấy câu lỗi { message } từ backend
-    types.ts                 Kiểu dữ liệu khớp response backend Node.js / bảng database
-    index.ts                 Mỗi hàm = 1 endpoint (api.createOrder, api.getTracking...)
-  realtime/socket.ts         Socket.IO: connectSocket / useSocketEvent (order:updated, message:new...)
-  auth/AuthContext.tsx       Đăng nhập/đăng ký/đăng xuất, lưu token bằng expo-secure-store, mở socket
-  hooks/
-    useApi.ts                useApi (tải + loading/lỗi/làm mới), useInterval (polling dự phòng)
-    useCurrentOrder.ts       Tìm đơn đang chạy khi mở tab Theo dõi / Tin nhắn
-  utils/format.ts            Ngày giờ (đổi sang giờ VN), tiền, nhãn trạng thái, khoảng cách, icon dịch vụ
-  utils/cancel.ts            Hộp chọn lý do hủy đơn
-  theme/index.ts             Màu, gradient, shadow (theme xanh lá)
-  data/mock.ts               Nội dung tĩnh còn lại: FAQ, thẻ nhận xét nhanh
-  navigation/                ScreenName, BACK_MAP, params (orderId, service), shell + thanh tab
-  components/                Icon, Avatar, StarRating, PulseDot, Screen/Header, BottomNav,
-                             GradientButton, ProfileParts, StateView (đang tải/lỗi/rỗng)
-  screens/                   17 màn hình (thêm Đăng nhập, Thông báo)
+    client.ts                fetch + token Bearer + timeout, tải ảnh (thu nhỏ + POST /api/uploads)
+    types.ts                 Kiểu dữ liệu khớp response backend
+    index.ts                 Mỗi hàm = 1 endpoint /api/customer/...
+  realtime/socket.ts         Socket.IO: order:updated, worker:location, message:new, notification:new
+  auth/AuthContext.tsx       Đăng nhập (email/SĐT, Google, Facebook), lưu token, mở socket
+  components/
+    auth/                    Ô nhập, nút Google/Facebook
+    map/                     Bản đồ (WebView + MapLibre/Leaflet), dùng chung mã với app thợ
+    ...                      Icon, Avatar (ảnh/chữ cái), StateView, Screen, BottomNav...
+  hooks/                     useApi, useCurrentOrder, usePushRegistration
+  utils/                     format (giờ VN, tiền, trạng thái, icon dịch vụ điện), pickImage, cancel
+  screens/                   18 màn hình (thêm Đổi mật khẩu)
 ```
 
 ## 7. Danh sách màn hình
@@ -125,13 +111,14 @@ src/
 | Tin nhắn | Chat với thợ | `ChatScreen` |
 | Đơn hàng | Lịch sử đơn hàng | `HistoryScreen` |
 | | Đánh giá dịch vụ | `ReviewScreen` |
-| (trước khi vào app) | Đăng nhập / Đăng ký | `LoginScreen` |
+| (trước khi vào app) | Đăng nhập / Đăng ký / Quên mật khẩu / Máy chủ | `LoginScreen` |
 | Trang chủ | Thông báo (bấm chuông) | `NotificationsScreen` |
 | Tài khoản | Tài khoản | `ProfileScreen` |
 | | Đánh giá của tôi | `ReviewsMineScreen` |
 | | Phương thức thanh toán | `PaymentMethodsScreen` |
 | | Lịch sử giao dịch | `TransactionsScreen` |
-| | Thông tin cá nhân | `PersonalInfoScreen` |
+| | Thông tin cá nhân (ảnh đại diện, SĐT) | `PersonalInfoScreen` |
+| | Đổi / đặt mật khẩu | `ChangePasswordScreen` |
 | | Địa chỉ của tôi | `AddressesScreen` |
 | | Trung tâm trợ giúp | `HelpCenterScreen` |
 | | Liên hệ CSKH | `SupportContactScreen` |
@@ -140,29 +127,30 @@ Luồng chính: Trang chủ → chọn dịch vụ → Đặt dịch vụ → Th
 
 ## 8. Màn hình nào gọi API nào
 
-Tất cả nằm dưới `/api/customer` (VD `POST /api/customer/orders`), gửi header `Authorization: Bearer <token>`.
+Tất cả nằm dưới `/api/customer` (trừ tải ảnh `POST /api/uploads`), gửi header `Authorization: Bearer <token>`.
+Chi tiết từng API: `docs/CUSTOMER_API.md` ở repo backend.
 
 | Màn hình | API | Realtime |
 |---|---|---|
-| Đăng nhập | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | mở socket |
+| Đăng nhập | `POST /auth/login`, `/auth/register`, `/auth/google`, `/auth/facebook`, `/auth/forgot-password`, `/auth/reset-password`, `GET /auth/providers`, `/auth/me` | mở socket |
 | Trang chủ | `GET /catalog/services`, `GET /orders?group=active\|completed`, `GET /notifications/unread-count` | `order:updated`, `notification:new` |
-| Đặt dịch vụ | `GET /addresses`, `POST /orders` | |
-| Thợ phù hợp | `GET /orders/{id}`, `GET /workers/{id}`, `GET /orders/{id}/tracking`, `POST /orders/{id}/cancel` | `order:updated`, `worker:location` |
-| Theo dõi | `GET /orders/{id}`, `GET .../tracking`, `POST .../quotes/{qid}/approve\|reject`, `POST .../payments`, `POST /payments/{id}/sandbox-confirm`, `POST .../complaints`, `POST .../warranty-claim` | `order:updated`, `worker:location` |
-| Chat | `GET/POST /orders/{id}/messages`, `POST .../messages/read` | `message:new` |
+| Đặt dịch vụ | `GET /addresses`, `POST /api/uploads`, `POST /orders` | |
+| Thợ phù hợp | `GET /orders/{id}` (trường `searching`), `GET /workers/{id}`, `GET /orders/{id}/tracking`, `POST /orders/{id}/cancel` | `order:updated`, `worker:location` |
+| Theo dõi | `GET /orders/{id}` (ảnh, an toàn điện), `GET .../tracking`, `POST .../quotes/{qid}/approve\|reject`, `POST .../payments`, `POST /payments/{id}/sandbox-confirm`, `POST .../complaints`, `POST .../warranty-claim` | `order:updated`, `worker:location` |
+| Chat | `GET/POST /orders/{id}/messages` (chữ / ảnh), `POST .../messages/read`, `POST /api/uploads` | `message:new` |
 | Đánh giá | `POST /orders/{id}/review` | |
 | Lịch sử đơn | `GET /orders?page=&pageSize=` | |
-| Tài khoản | các API đếm ở trên + `GET /reviews`, `GET /payments` | |
-| Thông tin cá nhân | `PATCH /profile` | |
+| Tài khoản | `GET /reviews`, `GET /payments`, `DELETE /device-tokens/{token}` (đăng xuất) | |
+| Thông tin cá nhân | `PATCH /profile`, `POST /api/uploads` | |
+| Đổi mật khẩu | `POST /auth/change-password` | |
 | Địa chỉ | `GET/POST/PATCH/DELETE /addresses` (+ GPS bằng `expo-location`) | |
 | Thông báo | `GET /notifications`, `PATCH /notifications/{id}/read`, `PATCH /notifications/read-all` | `notification:new` |
+| (nền) | `POST /device-tokens` | |
 
 ## 9. Ghi chú
 
-- Luồng: Trang chủ → Đặt dịch vụ → Thợ phù hợp (chờ thợ nhận) → Theo dõi → Chat → (hoàn thành) Thanh toán → Đánh giá.
-- Bấm đơn trong Lịch sử: đơn chưa có thợ (`pending`/`matching`) mở "Thợ phù hợp", còn lại mở "Theo dõi".
+- Luồng: Trang chủ → Đặt dịch vụ → Thợ phù hợp (hệ thống mời thợ theo đợt) → Theo dõi → Chat → Thanh toán → Đánh giá.
+- Thợ huỷ khi chưa tới nơi: đơn tự quay lại tìm thợ khác, app khách hiện lại "Đang tìm thợ".
 - Giờ hẹn gửi lên dạng `...+07:00`, backend trả ISO có múi giờ; app luôn hiển thị theo giờ Việt Nam.
-- Đề xuất cho thợ hết hạn (theo `offer_timeout_seconds` của cấu hình ghép cặp) mà chưa ai nhận thì backend tự gửi tiếp cho nhóm thợ kế tiếp.
-- Bảo hành tính từ `warranty_days` của dịch vụ; yêu cầu bảo hành và khiếu nại lưu chung bảng `complaints` (`type = warranty | complaint`) để web quản trị xử lý.
-- Bản đồ ở màn Theo dõi vẫn là hình minh hoạ; khoảng cách/ETA tính từ toạ độ thật (Haversine).
-- Chưa có: upload ảnh, push FCM, cổng MoMo/VNPay thật, đăng nhập OTP/Google/Facebook.
+- Bảo hành hiện tạo yêu cầu cho admin xử lý; luồng "tạo đơn bảo hành 0đ cho thợ cũ" đang chờ nhóm chốt (đề xuất ở `docs/CUSTOMER_API.md`).
+- Thư viện bản đồ được nhúng trong `src/components/map/mapVendor.ts` (sinh từ script của app thợ, giấy phép ở `LICENSES-map.txt`).

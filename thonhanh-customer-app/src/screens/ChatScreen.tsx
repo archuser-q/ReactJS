@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { Header, Screen } from '../components/Screen';
 import { Icon } from '../components/Icon';
 import { StateView } from '../components/StateView';
-import { api, errMsg, type Message, type OrderDetail, type OrderUpdatedEvent } from '../api';
+import { api, errMsg, uploadImage, type Message, type OrderDetail, type OrderUpdatedEvent } from '../api';
+import { mediaUri } from '../config/env';
+import { pickImages } from '../utils/pickImage';
 import { useAuth } from '../auth/AuthContext';
 import { useSocketEvent } from '../realtime/socket';
 import { useInterval } from '../hooks/useApi';
@@ -31,6 +33,7 @@ export default function ChatScreen() {
   const [msg, setMsg] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
 
   const loadMessages = useCallback(async () => {
     if (!orderId) return;
@@ -119,11 +122,27 @@ export default function ChatScreen() {
     if (!text || sending) return;
     setSending(true);
     try {
-      const m = await api.sendMessage(order.id, text);
+      const m = await api.sendMessage(order.id, { content: text });
       addMessage(m);
       setMsg('');
     } catch (e) {
       Alert.alert('Không gửi được', errMsg(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Gửi ảnh: chụp / chọn -> tải lên POST /api/uploads -> gửi image_url (app thợ hiển thị được)
+  const sendImage = async () => {
+    if (sending) return;
+    const [img] = await pickImages({ max: 1 });
+    if (!img) return;
+    setSending(true);
+    try {
+      const url = await uploadImage(img);
+      addMessage(await api.sendMessage(order.id, { image_url: url }));
+    } catch (e) {
+      Alert.alert('Không gửi được ảnh', errMsg(e));
     } finally {
       setSending(false);
     }
@@ -138,7 +157,7 @@ export default function ChatScreen() {
         <Pressable onPress={goBack} style={styles.back} hitSlop={8}>
           <Icon name="arrow-left" size={16} color={colors.text} />
         </Pressable>
-        <Avatar name={worker.full_name} size={36} />
+        <Avatar name={worker.full_name} size={36} uri={worker.avatar_url} />
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{worker.full_name}</Text>
           <View style={styles.statusRow}>
@@ -173,7 +192,7 @@ export default function ChatScreen() {
             <View key={m.id} style={{ gap: 12 }}>
               {showDay && <Text style={styles.day}>{day}</Text>}
               <View style={[styles.msgRow, { justifyContent: mine ? 'flex-end' : 'flex-start' }]}>
-                {!mine && <Avatar name={worker.full_name} size={28} />}
+                {!mine && <Avatar name={worker.full_name} size={28} uri={worker.avatar_url} />}
                 <View
                   style={[
                     styles.bubble,
@@ -182,7 +201,12 @@ export default function ChatScreen() {
                       : { backgroundColor: colors.gray100, borderBottomLeftRadius: 4 },
                   ]}
                 >
-                  <Text style={[styles.text, { color: mine ? '#fff' : colors.text }]}>{m.content ?? '[Hình ảnh]'}</Text>
+                  {m.image_url ? (
+                    <Pressable onPress={() => setViewing(m.image_url)}>
+                      <Image source={{ uri: mediaUri(m.image_url) }} style={styles.msgImg} />
+                    </Pressable>
+                  ) : null}
+                  {m.content ? <Text style={[styles.text, { color: mine ? '#fff' : colors.text }]}>{m.content}</Text> : null}
                   <Text
                     style={[
                       styles.time,
@@ -213,7 +237,7 @@ export default function ChatScreen() {
               maxLength={2000}
               selectionColor={colors.primary}
             />
-            <Pressable onPress={() => Alert.alert('Thông báo', 'Gửi ảnh sẽ dùng được khi backend có API upload ảnh.')} hitSlop={8}>
+            <Pressable onPress={sendImage} hitSlop={8} disabled={sending}>
               <Icon name="camera-outline" size={18} color={colors.gray400} />
             </Pressable>
           </View>
@@ -226,11 +250,19 @@ export default function ChatScreen() {
           <Text style={[styles.empty, { flex: 1, paddingVertical: 4 }]}>Cuộc trò chuyện đã đóng</Text>
         </View>
       )}
+
+      <Modal visible={!!viewing} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
+        <Pressable style={styles.viewer} onPress={() => setViewing(null)}>
+          {viewing ? <Image source={{ uri: mediaUri(viewing) }} style={{ width: '100%', height: '80%' }} resizeMode="contain" /> : null}
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  msgImg: { width: 200, height: 200, borderRadius: 12, backgroundColor: colors.gray200, marginBottom: 4 },
+  viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: colors.gray100,

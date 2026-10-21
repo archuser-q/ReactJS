@@ -140,17 +140,19 @@ const PALETTE = [
   { color: '#0891B2', bg: '#ECFEFF' },
 ];
 
+// Chỉ dịch vụ của thợ điện (4 nhóm: Sửa chữa điện · Lắp đặt thiết bị điện · Đồ điện gia dụng · Đi dây & tủ điện)
 const ICON_RULES: [RegExp, IconName][] = [
   [/cầu dao|aptomat|mcb/i, 'toggle-switch'],
-  [/đèn|led/i, 'creation'],
-  [/ổ cắm|công tắc/i, 'record-circle-outline'],
+  [/chập|mất điện/i, 'flash-alert-outline'],
+  [/rò điện|chống giật/i, 'shield-alert-outline'],
+  [/đèn|led/i, 'lightbulb-outline'],
+  [/quạt/i, 'fan'],
+  [/bình nóng lạnh/i, 'water-boiler'],
+  [/máy bơm/i, 'pump'],
+  [/ổ cắm|công tắc/i, 'power-socket-de'],
+  [/tủ điện/i, 'server'],
   [/an toàn|kiểm tra/i, 'check-circle-outline'],
-  [/lắp đặt|đi dây|dây điện/i, 'pulse'],
-  [/nước|ống|bồn/i, 'water-outline'],
-  [/điều hòa|điều hoà|máy lạnh/i, 'snowflake'],
-  [/máy giặt/i, 'washing-machine'],
-  [/tủ lạnh/i, 'fridge-outline'],
-  [/khóa|khoá/i, 'key-outline'],
+  [/đi dây|dây điện/i, 'cable-data'],
   [/điện/i, 'lightning-bolt'],
 ];
 

@@ -12,6 +12,7 @@ import type {
   MyPayment,
   MyReview,
   OrderDetail,
+  ProvidersConfig,
   OrderGroup,
   OrderItem,
   Paginated,
@@ -24,19 +25,30 @@ import type {
 } from './types';
 
 export * from './types';
-export { API_URL, SERVER_URL, ApiError, errMsg, getToken, setOnUnauthorized, setToken } from './client';
+export { ApiError, errMsg, getToken, pingServer, setOnUnauthorized, setToken, uploadImage, type LocalImage } from './client';
 
 type Page = { page?: number; pageSize?: number };
 
 export const api = {
   // Auth
+  /** identifier = email hoặc số điện thoại */
   login: (identifier: string, password: string) => http.post<AuthResult>('/auth/login', { identifier, password }),
-  register: (data: { phone: string; password: string; full_name: string; email?: string | null }) =>
+  register: (data: { full_name: string; email: string; phone: string; password: string }) =>
     http.post<AuthResult>('/auth/register', data),
-  me: async () => (await http.get<{ user: User }>('/auth/me')).user,
+  me: () => http.get<{ user: User; has_password: boolean }>('/auth/me'),
+  providers: () => http.get<ProvidersConfig>('/auth/providers'),
+  google: (tokens: { id_token?: string; access_token?: string }) => http.post<AuthResult>('/auth/google', tokens),
+  facebook: (accessToken: string) => http.post<AuthResult>('/auth/facebook', { access_token: accessToken }),
+  forgotPassword: (email: string) => http.post<{ message: string; debug_code?: string }>('/auth/forgot-password', { email }),
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    http.post<{ message: string }>('/auth/reset-password', { email, code, new_password: newPassword }),
+  changePassword: (oldPassword: string | null, newPassword: string) =>
+    http.post<{ message: string }>('/auth/change-password', { old_password: oldPassword, new_password: newPassword }),
+  registerDevice: (token: string, platform: 'android' | 'ios') => http.post<{ message: string }>('/device-tokens', { token, platform }),
+  removeDevice: (token: string) => http.del<{ message: string }>(`/device-tokens/${encodeURIComponent(token)}`),
 
   // Hồ sơ, địa chỉ
-  updateProfile: async (data: { full_name?: string; email?: string | null }) =>
+  updateProfile: async (data: { full_name?: string; email?: string | null; phone?: string | null; avatar_url?: string | null }) =>
     (await http.patch<{ user: User }>('/profile', data)).user,
   listAddresses: () => http.get<Address[]>('/addresses'),
   createAddress: (data: { label?: string | null; address_text: string; lat: number; lng: number; is_default?: boolean }) =>
@@ -57,7 +69,8 @@ export const api = {
     address_id: number;
     description?: string | null;
     scheduled_at?: string | null;
-    matching_mode?: 'instant' | 'batch';
+    /** URL ảnh tình trạng đã tải lên qua uploadImage (tối đa 6) */
+    image_urls?: string[];
   }) => http.post<OrderDetail>('/orders', data),
   listOrders: (q: { group?: OrderGroup } & Page = {}) => http.get<Paginated<OrderItem>>('/orders', q),
   getOrder: (id: number) => http.get<OrderDetail>(`/orders/${id}`),
@@ -70,7 +83,8 @@ export const api = {
   // Chat
   listMessages: (orderId: number, q?: { before_id?: number; limit?: number }) =>
     http.get<Message[]>(`/orders/${orderId}/messages`, q),
-  sendMessage: (orderId: number, content: string) => http.post<Message>(`/orders/${orderId}/messages`, { content }),
+  sendMessage: (orderId: number, data: { content?: string | null; image_url?: string | null }) =>
+    http.post<Message>(`/orders/${orderId}/messages`, data),
   markMessagesRead: (orderId: number) => http.post<{ updated: number }>(`/orders/${orderId}/messages/read`),
 
   // Thanh toán (MoMo/VNPay đang là sandbox giả lập)
