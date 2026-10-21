@@ -27,6 +27,8 @@ export type ComplaintListParams = {
   status?: ComplaintStatus
   type?: ComplaintType
   source?: ComplaintSource
+  /** Sự cố liên quan 1 thợ: báo cáo thợ gửi + khiếu nại của khách về đơn thợ làm */
+  workerId?: string
   page: number
   pageSize: number
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert, App, Avatar, Button, Card, Col, Descriptions, Drawer, Empty, Flex, Popconfirm, Rate, Row,
+  Alert, App, Avatar, Badge, Button, Card, Col, Descriptions, Drawer, Empty, Flex, Popconfirm, Rate, Row,
   Skeleton, Space, Statistic, Tabs, Tag, Tooltip, Typography,
 } from 'antd'
 import { CheckOutlined, CloseOutlined, UserOutlined } from '@ant-design/icons'
@@ -16,9 +16,10 @@ import VerificationTag from './VerificationTag'
 import WorkerOrdersTab from './WorkerOrdersTab'
 import WorkerReviewsTab from './WorkerReviewsTab'
 import WorkerWalletTab from './WorkerWalletTab'
+import WorkerIssuesTab from './WorkerIssuesTab'
 import OrderDetailDrawer from '../orders/OrderDetailDrawer'
 
-type TabKey = 'profile' | 'orders' | 'reviews' | 'wallet'
+type TabKey = 'profile' | 'orders' | 'reviews' | 'issues' | 'wallet'
 
 type Props = { workerId: string | null; onClose: () => void; onChanged: () => void }
 
@@ -261,6 +262,17 @@ export default function WorkerDetailDrawer({ workerId, onClose, onChanged }: Pro
                 key: 'reviews',
                 label: `Đánh giá (${w.rating_count})`,
                 children: <WorkerReviewsTab key={w.id} workerId={w.id} onOpenOrder={setOrderId} />,
+              },
+              {
+                key: 'issues',
+                label: (
+                  <Badge count={data.stats.open_issues} size="small" offset={[8, -2]}>
+                    Sự cố ({data.stats.reports + data.stats.customer_complaints})
+                  </Badge>
+                ),
+                children: (
+                  <WorkerIssuesTab key={w.id} workerId={w.id} stats={data.stats} onChanged={() => load(w.id, true)} />
+                ),
               },
               {
                 key: 'wallet',

@@ -54,7 +54,17 @@ export type WorkerDetail = {
   }
   skills: { id: number; name: string; years: number }[]
   documents: WorkerDocument[]
-  stats: { completed_orders: number; cancelled_orders: number; total_revenue: number }
+  stats: {
+    completed_orders: number
+    cancelled_orders: number
+    total_revenue: number
+    /** Báo cáo sự cố do thợ gửi từ app thợ */
+    reports: number
+    /** Khiếu nại của khách về các đơn thợ làm */
+    customer_complaints: number
+    /** Số sự cố chưa đóng (mới / đang xử lý) */
+    open_issues: number
+  }
   recentReviews: { id: string; rating: number; comment: string | null; created_at: string; customer_name: string }[]
   bankAccount: { bank_name: string; account_number: string; account_holder: string; updated_at: string } | null
 }

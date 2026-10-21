@@ -12,9 +12,10 @@ type Props = {
   params: ComplaintListParams
   onPageChange: (next: Partial<ComplaintListParams>) => void
   onView: (id: string) => void
+  emptyText?: string
 }
 
-export default function ComplaintTable({ data, loading, params, onPageChange, onView }: Props) {
+export default function ComplaintTable({ data, loading, params, onPageChange, onView, emptyText }: Props) {
   const columns: TableProps<ComplaintRow>['columns'] = [
     {
       title: 'Người gửi',
@@ -54,6 +55,7 @@ export default function ComplaintTable({ data, loading, params, onPageChange, on
       dataSource={data?.items}
       loading={loading}
       scroll={{ x: 'max-content' }}
+      locale={emptyText ? { emptyText } : undefined}
       pagination={{
         current: params.page,
         pageSize: params.pageSize,
