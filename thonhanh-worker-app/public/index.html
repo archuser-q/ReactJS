@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0B1F3A" />
+    <title>Thợ Nhanh Đối Tác</title>
+    <script src="/config.js"></script>
+    <style id="expo-reset">
+      html, body { height: 100%; margin: 0; }
+      body { overflow: hidden; background: #F2F4F7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+      #root { display: flex; height: 100%; flex: 1; }
+      /* Ẩn thanh cuộn kiểu máy tính để giống điện thoại (vẫn cuộn được bằng chuột/cảm ứng) */
+      #root * { scrollbar-width: none; }
+      #root *::-webkit-scrollbar { display: none; }
+      /* Màn hình rộng (máy tính): hiển thị app trong khung giống điện thoại để demo */
+      @media (min-width: 600px) {
+        body { display: flex; align-items: center; justify-content: center;
+               background: radial-gradient(1200px 600px at 20% 10%, #1B3A66 0%, #0B1F3A 55%, #071528 100%); }
+        #root { flex: none; width: 412px; height: min(880px, 96vh); border-radius: 36px; overflow: hidden;
+                box-shadow: 0 0 0 10px #050E1C, 0 30px 80px rgba(0, 0, 0, 0.55); background: #fff; }
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>Bạn cần bật JavaScript để dùng ứng dụng.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
