@@ -3,10 +3,12 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DetailHeader, Screen } from '../components/Screen';
 import { GradientButton } from '../components/GradientButton';
 import { AuthError, AuthField } from '../components/auth/AuthField';
+import { PasswordRules } from '../components/auth/PasswordRules';
 import { api, errMsg } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { useNav } from '../navigation/NavigationContext';
 import { colors } from '../theme';
+import { PASSWORD_HINT, passwordError } from '../utils/password';
 
 /** Đổi mật khẩu. Tài khoản tạo bằng Google/Facebook chưa có mật khẩu thì đặt mới, không cần mật khẩu cũ. */
 export default function ChangePasswordScreen() {
@@ -21,7 +23,8 @@ export default function ChangePasswordScreen() {
   const submit = async () => {
     setError(null);
     if (hasPassword && !oldPw) return setError('Vui lòng nhập mật khẩu hiện tại');
-    if (newPw.length < 8) return setError('Mật khẩu mới tối thiểu 8 ký tự');
+    const pwErr = passwordError(newPw, 'Mật khẩu mới');
+    if (pwErr) return setError(pwErr);
     if (newPw !== confirm) return setError('Mật khẩu nhập lại không khớp');
     setLoading(true);
     try {
@@ -46,7 +49,8 @@ export default function ChangePasswordScreen() {
         )}
         <View style={styles.card}>
           {hasPassword && <AuthField label="Mật khẩu hiện tại" icon="lock-outline" secure value={oldPw} onChangeText={setOldPw} />}
-          <AuthField label="Mật khẩu mới" icon="lock-reset" placeholder="Tối thiểu 8 ký tự" secure value={newPw} onChangeText={setNewPw} />
+          <AuthField label="Mật khẩu mới" icon="lock-reset" placeholder={PASSWORD_HINT} secure value={newPw} onChangeText={setNewPw} />
+          <PasswordRules value={newPw} />
           <AuthField label="Nhập lại mật khẩu mới" icon="lock-check-outline" secure value={confirm} onChangeText={setConfirm} onSubmitEditing={submit} />
         </View>
         <AuthError text={error} />

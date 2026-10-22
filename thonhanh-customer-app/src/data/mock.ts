@@ -29,7 +29,7 @@ export const FAQS = [
   },
   {
     q: 'Thanh toán bằng cách nào?',
-    a: 'Sau khi đơn hoàn thành, bạn chọn trả tiền mặt cho thợ hoặc thanh toán qua MoMo / VNPay ngay trong màn Theo dõi đơn.',
+    a: 'Sau khi đơn hoàn thành, bạn thanh toán qua MoMo hoặc VNPay ngay trong màn Theo dõi đơn. Thợ Nhanh không nhận tiền mặt để bảo vệ cả bạn và thợ. Đơn đã xong mà chưa thanh toán thì chưa đặt được đơn mới.',
   },
   {
     q: 'Thợ báo thêm chi phí phát sinh thì sao?',

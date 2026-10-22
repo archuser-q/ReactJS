@@ -107,7 +107,7 @@ export default function ProfileScreen() {
           />
         </ProfileSection>
         <ProfileSection title="Thanh toán">
-          <ProfileItem label="Phương thức thanh toán" icon="cash" sub="Tiền mặt / MoMo / VNPay" onPress={() => navigate('payment')} />
+          <ProfileItem label="Phương thức thanh toán" icon="cash" sub="MoMo / VNPay" onPress={() => navigate('payment')} />
           <ProfileItem label="Lịch sử giao dịch" icon="currency-usd" onPress={() => navigate('transactions')} />
         </ProfileSection>
         <ProfileSection title="Tài khoản">

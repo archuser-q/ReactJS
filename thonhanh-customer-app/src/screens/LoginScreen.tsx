@@ -5,11 +5,13 @@ import { GradientButton } from '../components/GradientButton';
 import { Icon } from '../components/Icon';
 import { Screen } from '../components/Screen';
 import { AuthError, AuthField } from '../components/auth/AuthField';
+import { PasswordRules } from '../components/auth/PasswordRules';
 import { SocialButtons } from '../components/auth/SocialButtons';
 import { useAuth } from '../auth/AuthContext';
 import { api, errMsg, pingServer } from '../api';
 import { defaultServerUrl, isServerOverridden, normalizeServer, serverUrl, setServerOverride } from '../config/env';
 import { GRADIENT, GRADIENT_PROPS, colors } from '../theme';
+import { PASSWORD_HINT, passwordError } from '../utils/password';
 
 type Mode = 'login' | 'register' | 'forgot';
 
@@ -57,7 +59,8 @@ function SignInForm({ mode, setMode }: { mode: 'login' | 'register'; setMode: (m
       if (fullName.trim().length < 2) return setError('Vui lòng nhập họ tên');
       if (!EMAIL_RE.test(email.trim())) return setError('Email không hợp lệ');
       if (!PHONE_RE.test(p)) return setError('Số điện thoại gồm 10 số, bắt đầu bằng 0 (để thợ liên hệ khi đến)');
-      if (password.length < 8) return setError('Mật khẩu tối thiểu 8 ký tự');
+      const pwErr = passwordError(password);
+      if (pwErr) return setError(pwErr);
       setLoading(true);
       try {
         await register({ full_name: fullName.trim(), email: email.trim().toLowerCase(), phone: p, password });
@@ -103,13 +106,14 @@ function SignInForm({ mode, setMode }: { mode: 'login' | 'register'; setMode: (m
         <AuthField
           label="Mật khẩu"
           icon="lock-outline"
-          placeholder={isRegister ? 'Tối thiểu 8 ký tự' : 'Mật khẩu'}
+          placeholder={isRegister ? PASSWORD_HINT : 'Mật khẩu'}
           secure
           value={password}
           onChangeText={setPassword}
           onSubmitEditing={submit}
           returnKeyType="go"
         />
+        {isRegister && <PasswordRules value={password} />}
       </View>
 
       {!isRegister && (
@@ -178,7 +182,8 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
   const reset = async () => {
     setError(null);
     if (!/^\d{6}$/.test(code.trim())) return setError('Mã xác nhận gồm 6 chữ số');
-    if (password.length < 8) return setError('Mật khẩu mới tối thiểu 8 ký tự');
+    const pwErr = passwordError(password, 'Mật khẩu mới');
+    if (pwErr) return setError(pwErr);
     setLoading(true);
     try {
       const res = await api.resetPassword(email.trim().toLowerCase(), code.trim(), password);
@@ -198,7 +203,8 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
         {sent && (
           <>
             <AuthField label="Mã xác nhận (6 số)" icon="shield-key-outline" placeholder="123456" keyboardType="number-pad" maxLength={6} value={code} onChangeText={setCode} />
-            <AuthField label="Mật khẩu mới" icon="lock-outline" placeholder="Tối thiểu 8 ký tự" secure value={password} onChangeText={setPassword} />
+            <AuthField label="Mật khẩu mới" icon="lock-outline" placeholder={PASSWORD_HINT} secure value={password} onChangeText={setPassword} />
+            <PasswordRules value={password} />
           </>
         )}
       </View>

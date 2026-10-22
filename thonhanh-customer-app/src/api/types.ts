@@ -143,7 +143,8 @@ export type SearchingInfo = {
   last_attempt_at: string | null;
 };
 
-export type PaymentMethod = 'cash' | 'momo' | 'vnpay';
+/** Thợ Nhanh không nhận tiền mặt: chỉ MoMo / VNPay (sandbox). 'cash' chỉ còn ở dữ liệu cũ */
+export type PaymentMethod = 'momo' | 'vnpay' | 'cash';
 
 export type Payment = {
   id: number;

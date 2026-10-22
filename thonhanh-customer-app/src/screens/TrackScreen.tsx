@@ -71,7 +71,8 @@ function pillText(o: OrderDetail, km: number | null): string {
   }
 }
 
-const PAY_METHODS: PaymentMethod[] = ['cash', 'momo', 'vnpay'];
+// Thợ Nhanh không nhận tiền mặt
+const PAY_METHODS: PaymentMethod[] = ['momo', 'vnpay'];
 
 export default function TrackScreen() {
   const { navigate, orderId: navOrderId } = useNav();
@@ -87,7 +88,7 @@ export default function TrackScreen() {
   }, [orderId]);
 
   const [busy, setBusy] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [method, setMethod] = useState<PaymentMethod>('momo');
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueText, setIssueText] = useState('');
   const [viewing, setViewing] = useState<string | null>(null);
@@ -137,7 +138,6 @@ export default function TrackScreen() {
   const steps = orderSteps(o.status);
   const cancelled = o.status === 'cancelled';
   const pendingQuotes = o.extra_quotes.filter((x) => x.status === 'pending');
-  const pendingPay = o.payments.find((p) => p.status === 'pending');
   const paid = o.payments.find((p) => p.status === 'success');
   // Còn bảo hành và chưa có yêu cầu đang xử lý -> gửi yêu cầu bảo hành, ngược lại là khiếu nại
   const warrantyActive = o.can_claim_warranty;
@@ -161,10 +161,6 @@ export default function TrackScreen() {
   const pay = () =>
     act(async () => {
       const p = await api.createPayment(o.id, method);
-      if (method === 'cash') {
-        Alert.alert('Đã báo cho thợ', `Vui lòng trả ${money(p.amount)} tiền mặt cho thợ. Đơn sẽ được xác nhận khi thợ nhận tiền.`);
-        return;
-      }
       // Chưa tích hợp cổng thật: hỏi xác nhận để giả lập MoMo/VNPay sandbox báo thành công
       await new Promise<void>((resolve) =>
         Alert.alert(`${PAYMENT_METHOD_LABEL[method]} (sandbox)`, `Thanh toán ${money(p.amount)}?`, [
@@ -391,13 +387,10 @@ export default function TrackScreen() {
         </View>
 
         {/* Thanh toán */}
-        {(o.can_pay || pendingPay?.method === 'cash') && (
+        {o.can_pay && (
           <View style={{ marginTop: 20 }}>
             <Text style={common.label}>Thanh toán</Text>
-            {pendingPay?.method === 'cash' && (
-              <Text style={styles.note}>Đang chờ thợ xác nhận đã nhận {money(pendingPay.amount)} tiền mặt.</Text>
-            )}
-            {o.can_pay && (
+            <Text style={styles.note}>Thợ đã hoàn thành. Vui lòng thanh toán qua MoMo hoặc VNPay (Thợ Nhanh không nhận tiền mặt).</Text>
             <>
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
               {PAY_METHODS.map((m) => {
@@ -415,7 +408,6 @@ export default function TrackScreen() {
             </View>
             <GradientButton title={`Thanh toán ${money(o.total_amount)}`} onPress={pay} loading={busy} />
             </>
-            )}
           </View>
         )}
 

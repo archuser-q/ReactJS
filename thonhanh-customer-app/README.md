@@ -6,7 +6,8 @@ ghép cặp, cùng kênh realtime Socket.IO, cùng API tải ảnh và bộ bả
 
 - Expo SDK 57 · React Native 0.86 · TypeScript
 - Phạm vi: **dịch vụ thợ điện** (Sửa chữa điện · Lắp đặt thiết bị điện · Đồ điện gia dụng · Đi dây & tủ điện)
-- Đăng nhập email / SĐT + mật khẩu, Google, Facebook; quên mật khẩu qua mã email; đổi mật khẩu
+- Đăng nhập email / SĐT + mật khẩu, Google, Facebook; quên mật khẩu qua mã email; đổi mật khẩu (mật khẩu mới: ≥ 8 ký tự, có chữ và số, giống app thợ)
+- Thanh toán **chỉ qua MoMo / VNPay** (sandbox), không nhận tiền mặt; còn đơn đã xong chưa trả thì app đưa khách tới đơn đó trước khi đặt đơn mới
 - Đặt đơn có **ảnh tình trạng**, giờ hẹn ≥ 60 phút (7:00–21:00); hệ thống tự ghép thợ (khách không chọn chế độ)
 - Theo dõi thợ trên **bản đồ thật** (MapLibre + OpenFreeMap, dự phòng Leaflet + OpenStreetMap, miễn phí, không cần API key)
 - Xem tiến độ tìm thợ, hạng thợ, chứng chỉ, kiểm tra an toàn điện, **ảnh trước / sau khi sửa**; chat có ảnh; thông báo đẩy (bản build)

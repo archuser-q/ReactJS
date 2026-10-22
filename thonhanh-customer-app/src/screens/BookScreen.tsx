@@ -95,7 +95,21 @@ export default function BookScreen() {
       });
       navigate('match', { orderId: order.id });
     } catch (e) {
-      Alert.alert('Không đặt được dịch vụ', errMsg(e));
+      const msg = errMsg(e);
+      // Còn đơn đã xong mà chưa thanh toán -> đưa khách tới đơn đó để trả (Thợ Nhanh không nhận tiền mặt)
+      const code = /chưa thanh toán đơn (\S+?)\.?(\s|$)/.exec(msg)?.[1];
+      if (code) {
+        const unpaid = await api
+          .listOrders({ group: 'completed', pageSize: 20 })
+          .then((r) => r.items.find((x) => x.code === code))
+          .catch(() => undefined);
+        Alert.alert('Chưa thanh toán đơn trước', msg, [
+          { text: 'Để sau', style: 'cancel' },
+          ...(unpaid ? [{ text: 'Thanh toán ngay', onPress: () => navigate('track', { orderId: unpaid.id }) }] : []),
+        ]);
+      } else {
+        Alert.alert('Không đặt được dịch vụ', msg);
+      }
     } finally {
       setSubmitting(false);
     }

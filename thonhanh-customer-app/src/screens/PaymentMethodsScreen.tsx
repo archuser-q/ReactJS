@@ -3,10 +3,9 @@ import { Icon, type IconName } from '../components/Icon';
 import { DetailHeader, Screen } from '../components/Screen';
 import { colors } from '../theme';
 
-// Backend hỗ trợ 3 phương thức: cash | momo | vnpay (MoMo/VNPay chạy sandbox)
+// Thợ Nhanh không nhận tiền mặt: chỉ MoMo / VNPay (chạy sandbox)
 const METHODS: { label: string; sub: string; icon: IconName; isDefault: boolean }[] = [
-  { label: 'Tiền mặt', sub: 'Trả trực tiếp cho thợ khi hoàn thành', icon: 'cash', isDefault: true },
-  { label: 'Ví MoMo', sub: 'Thanh toán online (môi trường thử nghiệm)', icon: 'wallet-outline', isDefault: false },
+  { label: 'Ví MoMo', sub: 'Thanh toán online (môi trường thử nghiệm)', icon: 'wallet-outline', isDefault: true },
   { label: 'VNPay', sub: 'Thẻ ATM / QR ngân hàng (môi trường thử nghiệm)', icon: 'credit-card-outline', isDefault: false },
 ];
 
@@ -31,7 +30,7 @@ export default function PaymentMethodsScreen() {
             )}
           </View>
         ))}
-        <Text style={styles.note}>Bạn chọn phương thức khi thanh toán đơn đã hoàn thành, trong màn Theo dõi đơn.</Text>
+        <Text style={styles.note}>Bạn chọn phương thức khi thanh toán đơn đã hoàn thành, trong màn Theo dõi đơn. Thợ Nhanh không nhận tiền mặt.</Text>
       </ScrollView>
     </Screen>
   );
