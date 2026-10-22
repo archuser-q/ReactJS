@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errMsg, qk } from '../../api';
@@ -14,17 +14,17 @@ import type { ScreenProps } from '../../navigation/types';
 import { colors, radius } from '../../theme';
 import { money, serviceIcon } from '../../utils/format';
 
-const MAX_YEARS = 40;
 const SHOW_SERVICES = 4;
 
-type Picked = Map<number, number>; // category_id -> số năm kinh nghiệm
+type Picked = Set<number>; // category_id
 
-const sameSkills = (a: Picked, b: Picked) => a.size === b.size && [...a].every(([id, y]) => b.get(id) === y);
+const sameSkills = (a: Picked, b: Picked) => a.size === b.size && [...a].every((id) => b.has(id));
 const yearsText = (y: number) => (y === 0 ? 'Dưới 1 năm' : `${y} năm`);
 
 /**
- * Nhóm dịch vụ (danh mục) thợ nhận làm + số năm kinh nghiệm từng nhóm.
- * Hệ thống chỉ gửi đơn thuộc các nhóm đã chọn; số năm kinh nghiệm là tiêu chí "kỹ năng" khi ghép đơn.
+ * Nhóm dịch vụ (danh mục) thợ nhận làm. Hệ thống chỉ gửi đơn thuộc các nhóm đã chọn.
+ * Số năm kinh nghiệm là 1 con số chung (sửa ở Thông tin cá nhân), áp cho mọi nhóm đã chọn —
+ * dùng làm tiêu chí "kỹ năng" khi ghép đơn.
  *
  * Mặc định ở chế độ XEM (chạm nhầm khi cuộn không đổi gì); bấm "Sửa" mới tick / chỉnh số năm,
  * "Lưu" chỉ bật khi có thay đổi. Thợ chưa chọn nhóm nào (đang làm hồ sơ) thì vào thẳng chế độ sửa.
@@ -38,13 +38,13 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
     queryFn: async () => ({ categories: await api.categories(), services: await api.services() }),
     staleTime: 5 * 60_000,
   });
-  const [picked, setPicked] = useState<Picked>(new Map());
+  const [picked, setPicked] = useState<Picked>(new Set());
   const [editing, setEditing] = useState<boolean | null>(null); // null = chưa biết (đang tải hồ sơ)
   const [firstTime, setFirstTime] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
 
-  const saved: Picked = useMemo(() => new Map((me.data?.skills ?? []).map((s) => [s.category_id, s.years])), [me.data]);
+  const saved: Picked = useMemo(() => new Set((me.data?.skills ?? []).map((s) => s.category_id)), [me.data]);
 
   useEffect(() => {
     if (!me.data) return;
@@ -53,7 +53,7 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
       setFirstTime(none);
       setEditing(none);
     }
-    if (!editing) setPicked(new Map(saved));
+    if (!editing) setPicked(new Set(saved));
   }, [me.data, saved, editing]);
 
   const groups = useMemo(() => {
@@ -77,22 +77,21 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
   }
 
   const dirty = !sameSkills(picked, saved);
-  const defaultYears = Math.max(1, Math.min(MAX_YEARS, me.data.profile.experience_years || 1));
+  const years = me.data.profile.experience_years;
 
   const toggle = (id: number) =>
     setPicked((m) => {
-      const n = new Map(m);
+      const n = new Set(m);
       if (n.has(id)) n.delete(id);
-      else n.set(id, saved.get(id) ?? defaultYears);
+      else n.add(id);
       return n;
     });
-  const setYears = (id: number, years: number) => setPicked((m) => new Map(m).set(id, Math.max(0, Math.min(MAX_YEARS, years))));
   const toggleExpand = (id: number) => setExpanded((x) => (x.has(id) ? new Set([...x].filter((i) => i !== id)) : new Set(x).add(id)));
 
   const cancelEdit = async () => {
     if (dirty && !(await ui.confirm({ title: 'Bỏ thay đổi?', message: 'Các nhóm dịch vụ vừa chọn sẽ không được lưu.', confirmText: 'Bỏ thay đổi', tone: 'danger' }))) return;
     if (firstTime) return void navigation.goBack();
-    setPicked(new Map(saved));
+    setPicked(new Set(saved));
     setEditing(false);
   };
 
@@ -100,7 +99,7 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
     if (!picked.size) return void ui.alert('Chưa chọn nhóm dịch vụ', 'Chọn ít nhất 1 nhóm dịch vụ bạn làm được.', 'warning');
     setBusy(true);
     try {
-      await api.setSkills([...picked].map(([category_id, years]) => ({ category_id, years })));
+      await api.setSkills([...picked]);
       await qc.invalidateQueries({ queryKey: qk.me });
       ui.toast(`Đã lưu ${picked.size} nhóm dịch vụ`);
       if (firstTime) navigation.goBack(); // đang làm hồ sơ: quay lại danh sách các bước
@@ -111,6 +110,20 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
       setBusy(false);
     }
   };
+
+  // Số năm kinh nghiệm chung: 1 chỗ sửa duy nhất là Thông tin cá nhân
+  const experience = (
+    <Pressable onPress={() => navigation.navigate('PersonalInfo')} style={styles.exp} accessibilityRole="button" accessibilityLabel="Sửa số năm kinh nghiệm">
+      <View style={[styles.icon, { backgroundColor: colors.primaryLight }]}>
+        <Icon name="briefcase-clock-outline" size={20} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.expTitle}>Kinh nghiệm làm nghề: {yearsText(years)}</Text>
+        <Text style={styles.price}>Áp dụng cho mọi nhóm bạn nhận làm</Text>
+      </View>
+      <Text style={styles.more}>Đổi</Text>
+    </Pressable>
+  );
 
   const serviceRows = (g: (typeof groups)[number], on: boolean) => {
     const open = expanded.has(g.id);
@@ -151,8 +164,14 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
           subtitle={`${mine.length}/${groups.length} nhóm`}
           right={{ icon: 'map-marker-radius-outline', onPress: () => navigation.navigate('ServiceArea'), label: 'Khu vực nhận việc' }}
         />
-        <ScrollView contentContainerStyle={styles.body}>
-          <Banner text="Hệ thống chỉ gửi cho bạn đơn thuộc các nhóm dưới đây. Số năm kinh nghiệm ở từng nhóm giúp bạn được ưu tiên khi ghép đơn." />
+        <ScrollView
+          contentContainerStyle={styles.body}
+          refreshControl={
+            <RefreshControl refreshing={me.isRefetching} onRefresh={() => void Promise.all([me.refetch(), catalog.refetch()])} tintColor={colors.primary} />
+          }
+        >
+          <Banner text="Hệ thống chỉ gửi cho bạn đơn thuộc các nhóm dưới đây. Kinh nghiệm càng lâu càng được ưu tiên khi ghép đơn." />
+          {experience}
           {mine.map((g) => (
             <View key={g.id} style={styles.group}>
               <View style={styles.groupHead}>
@@ -163,9 +182,7 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
                   <Text style={styles.groupTitle}>{g.name}</Text>
                   <Text style={styles.price}>{g.description || `${g.services.length} dịch vụ`}</Text>
                 </View>
-                <View style={styles.yearsBadge}>
-                  <Text style={styles.yearsBadgeText}>{yearsText(saved.get(g.id) ?? 0)}</Text>
-                </View>
+                <Icon name="check-circle" size={22} color={colors.primary} />
               </View>
               {serviceRows(g, true)}
             </View>
@@ -199,10 +216,10 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
         onBack={cancelEdit}
       />
       <ScrollView contentContainerStyle={styles.body}>
-        <Banner text="Tick nhóm bạn làm được và chỉnh số năm kinh nghiệm ở từng nhóm. Giá là giá tham chiếu của nền tảng; phát sinh vật tư thì gửi báo giá cho khách duyệt." />
+        <Banner text="Tick nhóm bạn làm được. Giá là giá tham chiếu của nền tảng; phát sinh vật tư thì gửi báo giá cho khách duyệt." />
+        {experience}
         {groups.map((g) => {
           const on = picked.has(g.id);
-          const years = picked.get(g.id) ?? 0;
           return (
             <View key={g.id} style={[styles.group, on && styles.groupOn]}>
               <Pressable onPress={() => toggle(g.id)} style={styles.groupHead} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
@@ -216,20 +233,6 @@ export default function SkillsScreen({ navigation }: ScreenProps<'Skills'>) {
                 <Icon name={on ? 'checkbox-marked' : 'checkbox-blank-outline'} size={26} color={on ? colors.primary : colors.faint} />
               </Pressable>
 
-              {on ? (
-                <View style={styles.yearsRow}>
-                  <Text style={styles.yearsLabel}>Kinh nghiệm ở nhóm này</Text>
-                  <View style={styles.stepper}>
-                    <Pressable onPress={() => setYears(g.id, years - 1)} style={styles.stepBtn} hitSlop={6} accessibilityLabel="Bớt 1 năm">
-                      <Icon name="minus" size={18} color={years > 0 ? colors.primary : colors.faint} />
-                    </Pressable>
-                    <Text style={styles.yearsValue}>{yearsText(years)}</Text>
-                    <Pressable onPress={() => setYears(g.id, years + 1)} style={styles.stepBtn} hitSlop={6} accessibilityLabel="Thêm 1 năm">
-                      <Icon name="plus" size={18} color={colors.primary} />
-                    </Pressable>
-                  </View>
-                </View>
-              ) : null}
               {serviceRows(g, on)}
             </View>
           );
@@ -250,13 +253,8 @@ const styles = StyleSheet.create({
   groupHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   groupTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   icon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  yearsBadge: { backgroundColor: colors.primaryLight, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
-  yearsBadgeText: { fontSize: 13, fontWeight: '700', color: colors.primary },
-  yearsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingBottom: 12, gap: 8 },
-  yearsLabel: { fontSize: 13, color: colors.muted, flexShrink: 1 },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primaryLight, borderRadius: radius.pill, paddingHorizontal: 4, paddingVertical: 2 },
-  stepBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
-  yearsValue: { minWidth: 82, textAlign: 'center', fontSize: 14, fontWeight: '700', color: colors.primary },
+  exp: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 12 },
+  expTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
   line: { borderTopWidth: 1, borderTopColor: colors.line },
   name: { flex: 1, fontSize: 14, color: colors.text },

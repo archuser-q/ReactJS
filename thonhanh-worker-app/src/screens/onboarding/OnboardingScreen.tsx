@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,8 @@ import { CircuitPattern, FocusStatusBar } from '../../components/Brand';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, errMsg, qk } from '../../api';
 import { useAuth, useWorkerMe } from '../../auth/AuthContext';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
+import { markOnboardingSkipped } from '../../utils/onboarding';
 import { Banner, PulseDot } from '../../components/Bits';
 import { Button } from '../../components/Button';
 import { Icon, type IconName } from '../../components/Icon';
@@ -18,23 +20,28 @@ import { fmtDateTime } from '../../utils/format';
 
 const REQUIRED = ['id_card_front', 'id_card_back', 'portrait'] as const;
 
+/**
+ * Hoàn thiện hồ sơ để được duyệt. Tự mở sau khi đăng ký (thợ chưa gửi hồ sơ); có nút X để bỏ qua,
+ * vào app dùng bình thường và nộp sau (thẻ ở Trang chủ, Hồ sơ → Giấy tờ xác minh). Chưa được duyệt thì
+ * chưa bật nhận đơn được. Thông báo kết quả duyệt do RootNavigator lo (dùng chung cho mọi màn).
+ */
 export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding'>) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const ui = useOverlay();
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
   const me = useWorkerMe({ poll: 15000 });
   const [submitting, setSubmitting] = useState(false);
-  const prev = useRef<string | null>(null);
+  useRefetchOnFocus(me.refetch);
 
   const ob = me.data?.onboarding;
-  useEffect(() => {
-    const s = me.data?.profile.verification_status ?? null;
-    if (prev.current && prev.current !== s && s === 'rejected') {
-      void ui.alert('Hồ sơ chưa được duyệt', 'Vui lòng xem lý do ở các giấy tờ bị từ chối và gửi lại.', 'warning');
-    }
-    prev.current = s;
-  }, [me.data?.profile.verification_status, ui]);
+
+  // Màn này mở trên Trang chủ (goBack) hoặc là màn đầu tiên sau đăng ký (thay bằng Trang chủ)
+  const close = () => {
+    if (user) void markOnboardingSkipped(user.id);
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.replace('Main');
+  };
 
   if (!me.data || !ob) {
     return (
@@ -45,13 +52,18 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
   }
 
   const docsOk = REQUIRED.every((t) => ob.documents[t] === 'pending' || ob.documents[t] === 'approved');
-  const submitted = !!ob.submitted_at && ob.verification_status === 'pending';
-  const rejected = ob.verification_status === 'rejected';
+  const state = me.data.profile.review_state;
+  const submitted = state === 'pending';
+  const rejected = state === 'rejected';
+  const approved = state === 'approved';
+  const years = me.data.profile.experience_years;
 
   const steps: { title: string; sub: string; done: boolean; icon: IconName; go: () => void }[] = [
     {
       title: 'Thông tin cá nhân',
-      sub: ob.has_phone ? `SĐT ${me.data.user.phone}` : 'Thêm số điện thoại để khách liên hệ',
+      sub: ob.has_phone
+        ? `SĐT ${me.data.user.phone} · ${years ? `${years} năm kinh nghiệm` : 'kinh nghiệm dưới 1 năm'}`
+        : 'Thêm số điện thoại và số năm kinh nghiệm',
       done: ob.has_phone,
       icon: 'account-outline',
       go: () => navigation.navigate('PersonalInfo'),
@@ -60,7 +72,7 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
       title: 'Nhóm dịch vụ nhận làm',
       sub: ob.has_skills
         ? `${me.data.skills.map((s) => s.category_name).join(', ')} · bán kính ${me.data.profile.service_radius_km} km`
-        : 'Chọn nhóm việc bạn làm được và số năm kinh nghiệm',
+        : 'Chọn nhóm việc bạn làm được',
       done: ob.has_skills,
       icon: 'lightning-bolt-outline',
       go: () => navigation.navigate('Skills'),
@@ -79,16 +91,17 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
     try {
       const res = await api.submitVerification();
       qc.setQueryData(qk.me, res);
-      await ui.alert('Đã gửi hồ sơ', 'Bộ phận xét duyệt sẽ kiểm tra trong 24 giờ làm việc. Bạn sẽ nhận thông báo khi có kết quả.', 'success');
+      void qc.invalidateQueries({ queryKey: qk.home });
+      await ui.alert(
+        'Đã gửi hồ sơ',
+        'Bộ phận xét duyệt sẽ kiểm tra trong 24 giờ làm việc. Trong lúc chờ, bạn vẫn xem được app; có kết quả app sẽ báo ngay.',
+        'success',
+      );
     } catch (e) {
       void ui.alert('Chưa gửi được', errMsg(e), 'danger');
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const confirmLogout = async () => {
-    if (await ui.confirm({ title: 'Đăng xuất?', message: 'Hồ sơ đã nhập vẫn được lưu.', confirmText: 'Đăng xuất' })) void logout();
   };
 
   return (
@@ -104,13 +117,16 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
           <Pressable onPress={() => navigation.navigate('Help')} style={styles.headBtn} hitSlop={8}>
             <Icon name="help-circle-outline" size={20} color="#fff" />
           </Pressable>
-          <Pressable onPress={confirmLogout} style={styles.headBtn} hitSlop={8}>
-            <Icon name="logout" size={20} color="#fff" />
+          <Pressable onPress={close} style={styles.headBtn} hitSlop={8} accessibilityLabel="Bỏ qua, vào trang chủ">
+            <Icon name="close" size={22} color="#fff" />
           </Pressable>
         </View>
-        <Text style={styles.headTitle}>Hoàn thiện hồ sơ để bắt đầu nhận việc</Text>
+        <Text style={styles.headTitle}>{approved ? 'Hồ sơ đã được duyệt' : 'Hoàn thiện hồ sơ để bắt đầu nhận việc'}</Text>
+        {!approved && !submitted ? (
+          <Text style={styles.headSub}>Chưa sẵn sàng? Bấm X để vào app trước, nộp sau ở Hồ sơ → Giấy tờ xác minh.</Text>
+        ) : null}
         <View style={styles.progress}>
-          {[...steps.map((s) => s.done), submitted || rejected].map((d, i) => (
+          {[...steps.map((s) => s.done), submitted || approved].map((d, i) => (
             <View key={i} style={[styles.progressSeg, d && { backgroundColor: '#fff' }]} />
           ))}
         </View>
@@ -120,17 +136,23 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
         contentContainerStyle={[styles.body, { paddingBottom: 40 + insets.bottom }]}
         refreshControl={<RefreshControl refreshing={me.isRefetching} onRefresh={() => void me.refetch()} tintColor={colors.primary} />}
       >
+        {approved ? (
+          <>
+            <Banner tone="success" text="Chúc mừng! Bạn đã là đối tác Thợ Nhanh. Bật nhận đơn ở Trang chủ để bắt đầu nhận việc." />
+            <Button title="Vào trang chủ" icon="home-outline" size="lg" onPress={close} />
+          </>
+        ) : null}
         {submitted ? (
           <View style={styles.waiting}>
             <PulseDot color={colors.warning} />
             <View style={{ flex: 1 }}>
               <Text style={styles.waitTitle}>Hồ sơ đang được xét duyệt</Text>
-              <Text style={styles.waitSub}>Đã gửi lúc {fmtDateTime(ob.submitted_at)}. Thường trong 24 giờ làm việc — app sẽ tự chuyển khi được duyệt.</Text>
+              <Text style={styles.waitSub}>Đã gửi lúc {fmtDateTime(ob.submitted_at)}. Thường trong 24 giờ làm việc, có kết quả app sẽ báo ngay.</Text>
             </View>
           </View>
         ) : null}
         {rejected ? (
-          <Banner tone="danger" text={`Hồ sơ chưa được duyệt. ${ob.reject_reasons.join(' · ') || 'Vui lòng kiểm tra lại giấy tờ.'}`} />
+          <Banner tone="danger" text={`${ob.reject_reasons.join('\n') || 'Hồ sơ chưa được duyệt.'}\nCập nhật giấy tờ rồi bấm "Gửi lại hồ sơ".`} />
         ) : null}
 
         {steps.map((s, i) => (
@@ -148,7 +170,7 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
           </Pressable>
         ))}
 
-        {ob.missing.length && !submitted ? (
+        {ob.missing.length && !submitted && !approved ? (
           <View style={styles.missing}>
             <Text style={styles.missingTitle}>Còn thiếu</Text>
             {ob.missing.map((m) => (
@@ -160,7 +182,7 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
           </View>
         ) : null}
 
-        {!submitted ? (
+        {!submitted && !approved ? (
           <Button
             title={rejected ? 'Gửi lại hồ sơ' : 'Gửi hồ sơ xét duyệt'}
             icon="send-check-outline"
@@ -170,6 +192,10 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
             disabled={!ob.can_submit}
           />
         ) : null}
+        {submitted ? <Button title="Vào trang chủ" icon="home-outline" variant="secondary" size="lg" onPress={close} /> : null}
+        {!submitted && !approved ? (
+          <Button title="Để sau, vào app trước" variant="ghost" onPress={close} />
+        ) : null}
 
         <Text style={styles.howTitle}>Làm việc với Thợ Nhanh thế nào?</Text>
         <View style={styles.how}>
@@ -177,7 +203,7 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
             ['toggle-switch-outline', 'Bật nhận đơn', 'App gửi vị trí để hệ thống ghép đơn gần bạn'],
             ['bell-ring-outline', 'Nhận lời mời', 'Xem việc, khoảng cách, thu nhập rồi bấm Nhận'],
             ['motorbike', 'Đến & sửa chữa', 'Cập nhật tiến độ, chụp ảnh trước/sau'],
-            ['cash-multiple', 'Nhận tiền', 'Thu tiền mặt hoặc nhận qua ví, rút về ngân hàng'],
+            ['cash-multiple', 'Nhận tiền', 'Khách trả qua MoMo / VNPay, tiền vào ví, rút về ngân hàng'],
           ].map(([icon, t, d]) => (
             <View key={t} style={styles.howItem}>
               <View style={[styles.howIcon, { backgroundColor: op(colors.primary, 0.1) }]}>
@@ -202,6 +228,7 @@ const styles = StyleSheet.create({
   name: { color: '#fff', fontSize: 18, fontWeight: '800' },
   headBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   headTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginTop: 16 },
+  headSub: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 6, lineHeight: 18 },
   progress: { flexDirection: 'row', gap: 6, marginTop: 14 },
   progressSeg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
   body: { padding: 16, gap: 12, paddingBottom: 40 },

@@ -31,6 +31,8 @@ export type ProvidersConfig = {
 export type DocType = 'id_card_front' | 'id_card_back' | 'portrait' | 'certificate';
 export type DocStatus = 'pending' | 'approved' | 'rejected';
 export type VerificationStatus = 'pending' | 'approved' | 'rejected';
+/** Trạng thái xét duyệt hồ sơ nhìn từ phía thợ: chưa gửi · chờ duyệt · bị từ chối / bỏ duyệt · đã duyệt */
+export type ReviewState = 'not_submitted' | 'pending' | 'rejected' | 'approved';
 export type Availability = 'online' | 'busy' | 'offline';
 
 export type WorkerDocument = {
@@ -45,10 +47,12 @@ export type WorkerDocument = {
   message?: string;
 };
 
-/** Kỹ năng = nhóm dịch vụ (danh mục) thợ nhận làm + số năm kinh nghiệm (tiêu chí "kỹ năng" của ghép cặp) */
+/** Kỹ năng = nhóm dịch vụ (danh mục) thợ nhận làm. Số năm kinh nghiệm là 1 con số chung của thợ
+ *  (profile.experience_years), máy chủ tự áp cho mọi nhóm — dùng cho tiêu chí "kỹ năng" của ghép cặp. */
 export type WorkerSkill = {
   category_id: number;
   category_name: string;
+  /** = profile.experience_years */
   years: number;
   service_count: number;
 };
@@ -77,6 +81,7 @@ export type WorkerMe = {
     availability: Availability;
     verification_status: VerificationStatus;
     verification_note: string | null;
+    review_state: ReviewState;
     submitted_at: string | null;
     trust_score: number;
     rating_avg: number | null;
@@ -95,7 +100,6 @@ export type WorkerMe = {
   settings: {
     commission_rate: number;
     min_withdrawal: number;
-    wallet_debt_limit: number;
     location_max_age_minutes: number;
   };
 };
@@ -155,6 +159,7 @@ export type JobItem = {
   customer_id: number;
   customer_name: string;
   paid: boolean;
+  /** 'cash' chỉ còn ở đơn cũ: nền tảng không nhận tiền mặt nữa */
   payment_method: 'cash' | 'momo' | 'vnpay' | null;
   net_earning: number | null;
   unread_messages: number;
@@ -204,9 +209,6 @@ export type JobDetail = JobItem & {
   cancel_requeues: boolean;
   can_quote: boolean;
   can_add_photos: boolean;
-  can_confirm_cash: boolean;
-  /** Khách đã chọn "trả tiền mặt" trên app khách, chờ thợ xác nhận */
-  customer_chose_cash: boolean;
   can_chat: boolean;
   can_report: boolean;
   needs_after_photo: boolean;
@@ -215,7 +217,9 @@ export type JobDetail = JobItem & {
   /** Đơn hẹn trước còn xa giờ hẹn: lúc sớm nhất được bắt đầu di chuyển (null = đi được ngay) */
   start_available_at: string | null;
   has_pending_quote: boolean;
-  amount_to_collect: number | null;
+  /** Đã xong việc, khách chưa thanh toán qua app (MoMo / VNPay) */
+  awaiting_payment: boolean;
+  amount_due: number | null;
 };
 
 export type JobGroup = 'active' | 'completed' | 'cancelled' | 'history';
@@ -225,7 +229,10 @@ export type IncomeStats = { completed: number; net_income: number; gross_income:
 export type HomeData = {
   availability: Availability;
   verification_status: VerificationStatus;
+  verification_note: string | null;
+  review_state: ReviewState;
   can_go_online: boolean;
+  /** Lý do chưa bật nhận đơn được, câu đầu là câu máy chủ báo khi bấm bật */
   blockers: string[];
   location_fresh: boolean;
   today: IncomeStats;
@@ -234,7 +241,6 @@ export type HomeData = {
   rating_count: number;
   trust_score: number;
   wallet_balance: number;
-  wallet_restricted: boolean;
   current_offer: Offer | null;
   active_job: JobItem | null;
   upcoming: JobItem[];
@@ -270,8 +276,6 @@ export type EarningSummary = {
     gross: number;
     commission: number;
     net: number;
-    cash_collected: number;
-    online_received: number;
     avg_net_per_order: number;
   };
   previous_net: number;
@@ -292,7 +296,7 @@ export type EarningItem = {
   created_at: string;
 };
 
-/** Loại biến động ví — theo enum wallet_txn_type của CSDL nhóm */
+/** Loại biến động ví — theo enum wallet_txn_type của CSDL nhóm ('commission' / 'topup' chỉ còn ở dữ liệu cũ) */
 export type WalletTxType = 'earning' | 'commission' | 'withdraw' | 'refund' | 'topup' | 'adjustment';
 
 export type WalletTx = {
@@ -309,14 +313,10 @@ export type WalletTx = {
 export type Wallet = {
   balance: number;
   available_for_withdrawal: number;
-  debt_limit: number;
-  restricted: boolean;
   min_withdrawal: number;
   pending_withdrawal: number;
   bank_account: BankAccount | null;
   recent: WalletTx[];
-  /** Môi trường thử nghiệm: cho nạp tiền sandbox */
-  topup_enabled: boolean;
 };
 
 export type Withdrawal = {

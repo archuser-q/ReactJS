@@ -1,6 +1,6 @@
 /** Trợ giúp, báo cáo sự cố, danh sách báo cáo, đổi mật khẩu */
 import { useState } from 'react';
-import { FlatList, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errMsg, qk } from '../../api';
@@ -11,27 +11,38 @@ import { Icon } from '../../components/Icon';
 import { useOverlay } from '../../components/Overlay';
 import { Header, Screen } from '../../components/Screen';
 import { StateView } from '../../components/StateView';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import type { ScreenProps } from '../../navigation/types';
 import { SUPPORT_EMAIL, SUPPORT_PHONE } from '../../config/env';
 import { colors, radius } from '../../theme';
 import { fmtDateTime, fmtWhenInline, orderCode } from '../../utils/format';
+import { PasswordRules } from '../../components/PasswordRules';
+import { passwordProblem } from '../../utils/password';
 
 const FAQ = [
   {
     q: 'Làm sao để nhận được nhiều đơn hơn?',
-    a: 'Bật nhận đơn và giữ app mở (có GPS). Hệ thống ghép đơn theo khoảng cách, điểm tin cậy, mức giá và số việc đang làm — thợ ở gần, được đánh giá tốt, ít hủy đơn sẽ được ưu tiên.',
+    a: 'Bật nhận đơn và giữ app mở (có GPS). Hệ thống ghép đơn theo khoảng cách, điểm tin cậy, số năm kinh nghiệm, tỷ lệ nhận đơn và số việc đang làm — thợ ở gần, được đánh giá tốt, ít hủy đơn sẽ được ưu tiên.',
+  },
+  {
+    q: 'Chưa được duyệt hồ sơ thì dùng app được không?',
+    a: 'Được. Bạn vẫn xem được app và chuẩn bị hồ sơ, chỉ chưa bật nhận đơn được. Nộp CCCD 2 mặt và ảnh chân dung ở Hồ sơ → Giấy tờ xác minh rồi bấm Gửi hồ sơ; quản trị viên duyệt xong app sẽ báo ngay.',
   },
   {
     q: 'Lời mời nhận đơn tồn tại bao lâu?',
-    a: 'Mỗi lời mời có thời gian đếm ngược (mặc định 60 giây). Hết giờ hoặc bạn bấm "Bỏ qua" thì đơn được chuyển cho thợ khác. Bỏ qua không bị phạt, nhưng tỷ lệ nhận đơn thấp có thể làm giảm ưu tiên.',
+    a: 'Mỗi lời mời có thời gian đếm ngược hiện ngay trên màn hình. Hết giờ hoặc bạn bấm "Bỏ qua" thì đơn được chuyển cho thợ khác. Bỏ qua không bị phạt, nhưng tỷ lệ nhận đơn thấp có thể làm giảm ưu tiên.',
   },
   {
     q: 'Phí nền tảng tính thế nào?',
-    a: 'Mỗi đơn hoàn thành, nền tảng thu 15% trên tổng tiền khách trả. Khách trả qua MoMo/VNPay: bạn nhận 85% vào ví. Khách trả tiền mặt: bạn giữ toàn bộ tiền, 15% phí được trừ vào ví (ví có thể âm, nạp tiền để bù).',
+    a: 'Mỗi đơn hoàn thành, nền tảng thu 15% trên tổng tiền khách trả. Khách thanh toán qua MoMo hoặc VNPay trên app, 85% còn lại vào ví của bạn ngay khi khách trả xong.',
+  },
+  {
+    q: 'Khách muốn trả tiền mặt thì sao?',
+    a: 'Thợ Nhanh không nhận tiền mặt, để tiền của bạn và của khách luôn có đối soát rõ ràng. Hướng dẫn khách mở app Thợ Nhanh, vào đơn và chọn Thanh toán (MoMo / VNPay). Khách chưa thanh toán thì chưa đặt được đơn mới.',
   },
   {
     q: 'Khi nào được rút tiền?',
-    a: 'Bạn rút được khi số dư ví dương, tối thiểu 50.000đ, về tài khoản ngân hàng trùng tên CCCD. Bản demo chuyển ngay; khi chạy thật, yêu cầu được xử lý trong 1 ngày làm việc.',
+    a: 'Bạn rút được bất cứ lúc nào, tối thiểu 50.000đ, về tài khoản ngân hàng trùng tên CCCD. Bản demo chuyển ngay; khi chạy thật, yêu cầu được xử lý trong 1 ngày làm việc.',
   },
   {
     q: 'Phát sinh thêm vật tư thì báo giá thế nào?',
@@ -173,6 +184,7 @@ export function ReportIssueScreen({ route, navigation }: ScreenProps<'ReportIssu
 
 export function ReportsScreen() {
   const q = useQuery({ queryKey: qk.reports, queryFn: () => api.reports(1) });
+  useRefetchOnFocus(q.refetch);
   const ST = { open: ['Mới gửi', colors.primary], processing: ['Đang xử lý', colors.warning], resolved: ['Đã giải quyết', colors.success], rejected: ['Từ chối', colors.danger] } as const;
   return (
     <Screen>
@@ -181,6 +193,7 @@ export function ReportsScreen() {
         data={q.data?.items ?? []}
         keyExtractor={(r) => String(r.id)}
         contentContainerStyle={{ padding: 16, gap: 10, flexGrow: 1 }}
+        refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={colors.primary} />}
         renderItem={({ item: r }) => (
           <Card style={{ gap: 6 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -207,7 +220,8 @@ export function ChangePasswordScreen({ navigation }: ScreenProps<'ChangePassword
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
-    if (pw.length < 8) return void ui.alert('Mật khẩu quá ngắn', 'Tối thiểu 8 ký tự.', 'warning');
+    const pwErr = passwordProblem(pw);
+    if (pwErr) return void ui.alert('Mật khẩu mới chưa đạt', pwErr, 'warning');
     if (pw !== confirm) return void ui.alert('Không khớp', 'Mật khẩu nhập lại không khớp.', 'warning');
     setBusy(true);
     try {
@@ -226,7 +240,8 @@ export function ChangePasswordScreen({ navigation }: ScreenProps<'ChangePassword
       <Header title="Đổi mật khẩu" />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
         <TextField label="Mật khẩu hiện tại" icon="lock-outline" value={oldPw} onChangeText={setOld} secure hint="Đăng nhập bằng Google/Facebook và chưa có mật khẩu thì để trống" />
-        <TextField label="Mật khẩu mới" icon="lock-plus-outline" value={pw} onChangeText={setPw} secure />
+        <TextField label="Mật khẩu mới" icon="lock-plus-outline" value={pw} onChangeText={setPw} secure autoComplete="new-password" />
+        <PasswordRules value={pw} />
         <TextField label="Nhập lại mật khẩu mới" icon="lock-check-outline" value={confirm} onChangeText={setConfirm} secure />
         <Button title="Lưu mật khẩu" onPress={save} loading={busy} size="lg" />
       </ScrollView>

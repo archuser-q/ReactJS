@@ -10,6 +10,7 @@ import { StateView } from '../../components/StateView';
 import { useRootNav } from '../../navigation/types';
 import { colors, op, radius } from '../../theme';
 import { timeAgo } from '../../utils/format';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 
 // Loại thông báo theo quy ước chung của backend (bảng notifications, cột type)
 const TYPE: Record<string, { icon: IconName; color: string }> = {
@@ -44,6 +45,7 @@ export default function NotificationsScreen() {
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined),
   });
+  useRefetchOnFocus(q.refetch);
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
 
   const open = async (n: AppNotification) => {

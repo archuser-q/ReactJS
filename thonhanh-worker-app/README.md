@@ -1,6 +1,6 @@
 # Thợ Nhanh Đối Tác — App Thợ điện
 
-App dành cho thợ điện của nền tảng THỢ NHANH: đăng ký & xác minh hồ sơ, bật/tắt nhận đơn, nhận lời mời từ thuật toán ghép cặp, làm việc tại nhà khách (dẫn đường, vuốt cập nhật tiến độ, **kiểm tra an toàn điện**, ảnh trước/sau, báo giá phát sinh theo bảng giá, thu tiền), theo dõi thu nhập, ví, đánh giá, hạng thợ.
+App dành cho thợ điện của nền tảng THỢ NHANH: đăng ký & xác minh hồ sơ, bật/tắt nhận đơn, nhận lời mời từ thuật toán ghép cặp, làm việc tại nhà khách (dẫn đường, vuốt cập nhật tiến độ, **kiểm tra an toàn điện**, ảnh trước/sau, báo giá phát sinh theo bảng giá), nhận tiền qua ví (khách trả MoMo / VNPay, không tiền mặt), theo dõi thu nhập, rút tiền, đánh giá, hạng thợ.
 
 **Expo SDK 57 · React Native 0.86 · React 19 · TypeScript** — chạy Android, iOS và **web** (để demo bằng trình duyệt).
 
@@ -26,10 +26,11 @@ Mở **http://localhost:8082** — trên máy tính app hiện trong khung đi�
 |---|---|
 | `tho@thonhanh.vn` | Thợ đã duyệt, có sẵn 6 tuần lịch sử (~100 đơn, 4,8 sao, hạng Thợ Vàng) — demo chính |
 | `tho2@thonhanh.vn` | Thợ thứ 2 (demo 2 thợ cùng nhận lời mời) |
-| `tho.moi@thonhanh.vn` | Thợ vừa gửi hồ sơ, đang chờ admin duyệt (màn onboarding) |
+| `tho.moi@thonhanh.vn` | Thợ vừa gửi hồ sơ, đang chờ admin duyệt (vào app được, chưa bật nhận đơn được) |
 
 App tự gọi API ở `http://<máy đang mở web>:3000/api`. Backend ở máy khác thì đặt `API_URL` (xem `.env.example`) rồi `docker compose up -d`.
 Bản 2.0.0 trở đi chỉ chạy với backend Node; backend FastAPI cũ (cổng 8000) không còn dùng — nhớ `docker compose down` bản cũ.
+Bản 2.1.0 cần backend cùng đợt (bỏ tiền mặt / nạp ví, `PUT /skills` nhận `category_ids`, trường `review_state`): cập nhật cả 2 gói cùng lúc.
 
 ### Kịch bản demo 5 phút (không cần app khách)
 Các lệnh `demo:customer` chạy trong thư mục **backend-node** (đóng vai khách hàng, gọi đúng API app khách):
@@ -38,9 +39,10 @@ Các lệnh `demo:customer` chạy trong thư mục **backend-node** (đóng vai
 2. `docker compose exec api npm run demo:customer -- order` → lời mời hiện ra ngay (bản đồ, số tiền thực nhận, đếm ngược) → **Nhận đơn**.
 3. Vuốt *Bắt đầu di chuyển* → *Đã đến nơi* → tick **kiểm tra an toàn điện** → vuốt *Bắt đầu sửa chữa* (chụp ảnh hiện trạng).
 4. **Báo giá phát sinh** → chọn mục trong bảng giá (giá cố định, chỉ chọn số lượng) hoặc thêm *mục ngoài bảng giá* → gửi; khách duyệt: `docker compose exec api npm run demo:customer -- quote <mã đơn>` (mã đơn như trên app, VD `TN261019000152`, hoặc số id). Khi chưa duyệt, app ghi rõ "khách đồng ý thì bạn nhận thêm …".
-5. Vuốt *Hoàn thành* (chụp ảnh sau). Khách trả tiền mặt và đánh giá:
-   `... demo:customer -- pay <mã đơn> --method cash` → thợ bấm **Đã thu tiền mặt** → `... demo:customer -- review <mã đơn> --stars 5`.
-6. Tab **Thu nhập**: ví bị trừ 15% hoa hồng đơn tiền mặt; thử *Nạp tiền*, *Rút tiền*.
+5. Vuốt *Hoàn thành* (chụp ảnh sau). Màn làm việc hiện "Chờ khách thanh toán qua app". Khách trả (MoMo sandbox) và đánh giá:
+   `... demo:customer -- pay <mã đơn>` → app thợ báo đã nhận tiền → `... demo:customer -- review <mã đơn> --stars 5`.
+6. Tab **Thu nhập**: ví cộng 85% tiền đơn (đã trừ phí 15%); thử *Rút tiền*.
+   Không có tiền mặt: khách còn đơn chưa trả thì chưa đặt được đơn mới (lệnh `rush` tự trả giúp).
 7. Thuật toán ghép cặp khi đông đơn: `docker compose --profile bots up -d` (thợ ảo) rồi `... demo:customer -- rush --count 12`, xem `docker compose exec api npm run demo:customer -- show <mã đơn>` (đơn nào đi Greedy, đơn nào đi Hungarian).
 
 ### Chạy trên điện thoại thật (Expo Go)
@@ -87,14 +89,17 @@ Cách nhanh không cần Expo Go: mở `http://192.168.1.23:8082` bằng trình 
 
 ```
 Đăng nhập ─ Đăng ký ─ Quên mật khẩu (mã 6 số qua email) ─ Máy chủ
-Onboarding (chưa duyệt): Thông tin → Kỹ năng → Giấy tờ → Gửi duyệt → Chờ duyệt / Bị từ chối (lý do từng giấy tờ)
-Tab chính (đã duyệt):
-├─ Trang chủ    trạng thái nhận đơn (công tắc) hoặc việc đang làm, số liệu hôm nay / 7 ngày, lịch hẹn
+Hoàn thiện hồ sơ (tự mở sau khi đăng ký, nút X để bỏ qua): Thông tin (SĐT, số năm kinh nghiệm) → Nhóm dịch vụ → Giấy tờ → Gửi duyệt
+Tab chính (mọi thợ; chưa duyệt thì không bật nhận đơn được):
+├─ Trang chủ    thẻ hồ sơ khi chưa duyệt (nộp giấy tờ / chờ duyệt / bị từ chối kèm lý do),
+│               trạng thái nhận đơn (công tắc) hoặc việc đang làm, số liệu hôm nay / 7 ngày, lịch hẹn
 ├─ Công việc    Đang làm (gồm lịch hẹn) · Hoàn thành · Đã hủy  →  Màn làm việc  →  Chat với khách
-├─ Thu nhập     Ngày/Tuần/Tháng + biểu đồ, so với cùng kỳ, ví → Lịch sử ví, Rút tiền, Nạp tiền, Ngân hàng
+├─ Thu nhập     Ngày/Tuần/Tháng + biểu đồ, so với cùng kỳ, ví → Lịch sử ví, Rút tiền, Ngân hàng
 └─ Hồ sơ        Thẻ đối tác (hạng, đánh giá, số đơn, điểm tin cậy) + tiến độ lên hạng, Thông tin cá nhân, Kỹ năng,
                 Giấy tờ, Khu vực nhận việc, Đánh giá, Hiệu suất 30 ngày, Trợ giúp, Báo cáo sự cố
 Toàn cục: Lời mời nhận đơn (hiện đè lên mọi màn: rung, đếm ngược, bản đồ, thu nhập thực nhận) · Thông báo
+          · Báo ngay khi admin duyệt / từ chối / bỏ duyệt hồ sơ (không cần thoát app)
+Mọi màn có dữ liệu: kéo xuống để tải lại; quay lại màn (bấm ←, đổi tab) cũng tự tải lại.
 ```
 
 Các nút trên màn làm việc hiện/ẩn theo **cờ hành động server trả về** (`next_action`, `can_quote`, `needs_safety_check`…), nên luật nghiệp vụ chỉ nằm ở backend. Riêng kiểm tra an toàn điện: app chỉ mở nút *Bắt đầu sửa chữa* khi tick đủ 4 mục, và server từ chối nếu thiếu xác nhận, đồng thời lưu thời điểm xác nhận để làm căn cứ khi có sự cố.
@@ -152,7 +157,8 @@ npx expo install --fix     # sửa phiên bản thư viện cho khớp SDK
 | "Không kết nối được máy chủ" | Backend đã chạy chưa (`docker compose ps` trong thư mục backend-node)? Thử mở http://localhost:3000/api/health; điện thoại thì sửa ở màn Máy chủ (`<IP>:3000`) |
 | Đăng nhập báo sai mật khẩu với tài khoản demo | App đang trỏ vào backend FastAPI cũ hoặc CSDL cũ: tắt backend cũ, kiểm tra màn Máy chủ là cổng 3000 |
 | `port is already allocated` | Cổng 8082 (app) hoặc 3000 (API) đang bị chương trình khác dùng: tắt chương trình đó, hoặc đổi `WORKER_WEB_PORT` trong `.env` |
-| Bật nhận đơn nhưng không có lời mời | Cần cho phép vị trí; vị trí phải mới hơn 10 phút; đơn phải đúng kỹ năng & trong bán kính; ví không âm quá −500.000đ |
+| Bật nhận đơn nhưng không có lời mời | Cần hồ sơ đã duyệt; cho phép vị trí; vị trí phải mới hơn 10 phút; đơn phải đúng nhóm dịch vụ & trong bán kính |
+| Bấm bật nhận đơn thì báo "chưa gửi hồ sơ" / "đang chờ duyệt" | Đúng thiết kế: thợ chưa được duyệt vẫn dùng app nhưng chưa nhận đơn. Nộp giấy tờ ở Hồ sơ → Giấy tờ xác minh, chờ admin duyệt |
 | Bản đồ không hiện đường phố | Cần Internet (máy chủ OpenFreeMap / OpenStreetMap); mạng công ty/trường chặn thì thử mạng khác |
 | Expo Go báo *Project is incompatible with this version of Expo Go* | Expo Go trên điện thoại khác phiên bản SDK (app dùng SDK 57). Android: cài đúng bản tại https://expo.dev/go |
 | Chạy `up` xong không thấy mã QR (`docker compose --profile dev ps -a` thấy `worker-dev` ở trạng thái *Created*) | Chạy `docker compose --profile dev up -d worker-dev` rồi `docker compose --profile dev logs -f worker-dev` (log có mã QR). Lệnh `up -d` vẫn đứng yên thì khởi động lại Docker Desktop. Hoặc bỏ qua QR: Expo Go → **Enter URL manually** → `exp://<IP máy tính>:8081` (hoặc bấm vào dự án trong mục *Recently opened*) |

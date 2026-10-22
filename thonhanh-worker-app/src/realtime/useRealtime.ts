@@ -14,9 +14,11 @@ import { useEffect } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { qk } from '../api';
+import { useOverlay } from '../components/Overlay';
 import { serverUrl } from '../config/env';
 
 type Ids = { order_id?: number };
+type NotificationEvent = { type?: string; title?: string; body?: string | null; data?: { order_id?: number | string } | null };
 
 let current: Socket | null = null;
 
@@ -26,6 +28,7 @@ export function isRealtimeConnected(): boolean {
 
 export function useRealtime(token: string | null) {
   const qc = useQueryClient();
+  const ui = useOverlay();
 
   useEffect(() => {
     if (!token) return;
@@ -57,15 +60,30 @@ export function useRealtime(token: string | null) {
       if (m?.order_id) void qc.invalidateQueries({ queryKey: qk.messages(Number(m.order_id)) });
       refreshOrder(m);
     });
-    socket.on('notification:new', () => {
+    socket.on('notification:new', (n: NotificationEvent) => {
       void qc.invalidateQueries({ queryKey: qk.unread });
       void qc.invalidateQueries({ queryKey: qk.notifications });
       void qc.invalidateQueries({ queryKey: qk.home });
+      // Admin duyệt / từ chối / bỏ duyệt hồ sơ: cập nhật ngay màn giấy tờ, trang chủ (không chờ hỏi định kỳ)
+      if (n?.type === 'verification') void qc.invalidateQueries({ queryKey: qk.me });
+      if (n?.type === 'payment') {
+        void qc.invalidateQueries({ queryKey: qk.wallet });
+        void qc.invalidateQueries({ queryKey: qk.walletTx });
+        void qc.invalidateQueries({ queryKey: ['earnings'] });
+        void qc.invalidateQueries({ queryKey: qk.earningItems });
+        // Khách vừa trả tiền 1 đơn (không phải thông báo rút tiền): hiện thông báo nổi ở bất kỳ màn nào
+        const orderId = Number(n.data?.order_id);
+        if (orderId) {
+          void qc.invalidateQueries({ queryKey: qk.job(orderId) });
+          ui.toast(n.body || n.title || 'Khách đã thanh toán', 'success');
+        }
+      }
     });
     // Kết nối lại sau khi mất mạng: tải lại phần quan trọng (có thể đã lỡ sự kiện)
     socket.io.on('reconnect', () => {
       refreshOffer();
       void qc.invalidateQueries({ queryKey: ['jobs'] });
+      void qc.invalidateQueries({ queryKey: qk.me });
     });
 
     return () => {
@@ -73,5 +91,5 @@ export function useRealtime(token: string | null) {
       socket.disconnect();
       if (current === socket) current = null;
     };
-  }, [token, qc]);
+  }, [token, qc, ui]);
 }

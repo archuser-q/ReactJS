@@ -166,9 +166,15 @@ export function fmtKm(km?: number | null): string {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`;
 }
 
-/** Ước lượng thời gian đi xe máy trong phố ~20 km/h */
+/**
+ * Khoảng cách trong app là ĐƯỜNG CHIM BAY (PostGIS / GPS đo thẳng). Đường đi thật trong phố thường dài hơn
+ * khoảng 1,3–1,5 lần (đường một chiều, ngõ, quay đầu) -> lấy 1,4.
+ */
+export const ROAD_FACTOR = 1.4;
+
+/** Ước lượng thời gian đi xe máy trong phố: quãng đường thật ≈ 1,4 × đường chim bay, ~20 km/h, cộng 1 phút dắt xe / khởi hành */
 export function etaMinutes(km: number): number {
-  return Math.max(1, Math.round((km / 20) * 60));
+  return Math.max(2, Math.round(((km * ROAD_FACTOR) / 20) * 60 + 1));
 }
 
 // ── Icon dịch vụ ────────────────────────────────────────────────────────────

@@ -1,10 +1,10 @@
-/** Ví: lịch sử giao dịch, lịch sử thu nhập, rút tiền, nạp tiền, tài khoản ngân hàng */
+/** Ví: lịch sử giao dịch, lịch sử thu nhập, rút tiền, tài khoản ngân hàng (không có nạp tiền: mọi đơn khách trả online, tiền vào ví) */
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errMsg, qk, type Paginated, type WalletTx, type Withdrawal } from '../../api';
-import { Banner, Card, KeyValue, Tag } from '../../components/Bits';
+import { Banner, Card, Tag } from '../../components/Bits';
 import { Button } from '../../components/Button';
 import { Chip, Segmented, TextField } from '../../components/Form';
 import { Icon, type IconName } from '../../components/Icon';
@@ -14,13 +14,14 @@ import { StateView } from '../../components/StateView';
 import type { ScreenProps } from '../../navigation/types';
 import { colors, op, radius } from '../../theme';
 import { fmtDateTime, formatVnd, money, orderCode, PAYMENT_LABEL } from '../../utils/format';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 
 const TX: Record<WalletTx['type'], { label: string; icon: IconName }> = {
   earning: { label: 'Thu nhập đơn', icon: 'cash-plus' },
   commission: { label: 'Phí nền tảng', icon: 'percent-outline' },
   withdraw: { label: 'Rút tiền', icon: 'bank-transfer-out' },
   refund: { label: 'Hoàn tiền rút', icon: 'cash-refund' },
-  topup: { label: 'Nạp tiền', icon: 'wallet-plus-outline' },
+  topup: { label: 'Nạp tiền (dữ liệu cũ)', icon: 'wallet-plus-outline' },
   adjustment: { label: 'Điều chỉnh', icon: 'tune-variant' },
 };
 
@@ -46,6 +47,7 @@ export function WalletHistoryScreen() {
     enabled: tab === 'wd',
   });
   const q = tab === 'tx' ? tx : wd;
+  useRefetchOnFocus(() => q.refetch());
   const items: (WalletTx | Withdrawal)[] =
     tab === 'tx' ? (tx.data?.pages.flatMap((p) => p.items) ?? []) : (wd.data?.pages.flatMap((p) => p.items) ?? []);
 
@@ -131,6 +133,7 @@ export function EarningHistoryScreen({ navigation }: ScreenProps<'EarningHistory
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined),
   });
+  useRefetchOnFocus(q.refetch);
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <Screen>
@@ -167,6 +170,7 @@ export function WithdrawScreen({ navigation }: ScreenProps<'Withdraw'>) {
   const w = useQuery({ queryKey: qk.wallet, queryFn: api.wallet });
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
+  useRefetchOnFocus(w.refetch); // quay lại từ màn liên kết ngân hàng
   const value = parseInt(amount.replace(/\D/g, '') || '0', 10);
 
   if (!w.data) {
@@ -211,11 +215,14 @@ export function WithdrawScreen({ navigation }: ScreenProps<'Withdraw'>) {
   return (
     <Screen>
       <Header title="Rút tiền" subtitle="Môi trường demo: tiền được chuyển ngay (mô phỏng)" />
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={w.isRefetching} onRefresh={() => void w.refetch()} tintColor={colors.primary} />}
+      >
         <Card style={{ backgroundColor: colors.dark, borderColor: colors.dark }}>
           <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Số dư có thể rút</Text>
           <Text style={{ color: '#fff', fontSize: 26, fontWeight: '900', fontVariant: ['tabular-nums'], marginTop: 4 }}>{money(d.available_for_withdrawal)}</Text>
-          {d.balance < 0 ? <Text style={{ color: '#FCA5A5', fontSize: 12, marginTop: 4 }}>Ví đang âm {money(d.balance)} — chưa rút được</Text> : null}
         </Card>
         <TextField
           label="Số tiền muốn rút"
@@ -254,61 +261,6 @@ export function WithdrawScreen({ navigation }: ScreenProps<'Withdraw'>) {
 }
 
 // ---------------------------------------------------------------------------
-
-export function TopupScreen({ navigation }: ScreenProps<'Topup'>) {
-  const qc = useQueryClient();
-  const ui = useOverlay();
-  const w = useQuery({ queryKey: qk.wallet, queryFn: api.wallet });
-  const [amount, setAmount] = useState(0);
-  const [method, setMethod] = useState<'momo' | 'vnpay'>('momo');
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (w.data && !amount) setAmount(w.data.balance < 0 ? Math.ceil(-w.data.balance / 10000) * 10000 : 200_000);
-  }, [w.data, amount]);
-
-  const submit = async () => {
-    setBusy(true);
-    try {
-      await api.topup(amount, method);
-      void qc.invalidateQueries({ queryKey: qk.wallet });
-      void qc.invalidateQueries({ queryKey: qk.walletTx });
-      void qc.invalidateQueries({ queryKey: qk.home });
-      ui.toast(`Đã nạp ${money(amount)} vào ví (sandbox)`);
-      navigation.goBack();
-    } catch (e) {
-      void ui.alert('Không nạp được', errMsg(e), 'danger');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Screen>
-      <Header title="Nạp tiền vào ví" subtitle="Thanh toán mô phỏng (sandbox)" />
-      <ScrollView contentContainerStyle={styles.body}>
-        <Banner text="Khi khách trả tiền mặt, phí nền tảng được trừ vào ví nên ví có thể âm. Nạp tiền để bù số âm và tiếp tục nhận đơn." />
-        {w.data ? <KeyValue label="Số dư hiện tại" value={money(w.data.balance)} strong color={w.data.balance < 0 ? colors.danger : colors.text} /> : null}
-        <View style={styles.chips}>
-          {[50_000, 100_000, 200_000, 500_000, 1_000_000].map((a) => (
-            <Chip key={a} label={money(a)} selected={amount === a} onPress={() => setAmount(a)} />
-          ))}
-        </View>
-        <View style={{ gap: 8 }}>
-          {(['momo', 'vnpay'] as const).map((m) => (
-            <Pressable key={m} onPress={() => setMethod(m)} style={[styles.method, method === m && { borderColor: colors.primary, backgroundColor: colors.primaryLight }]}>
-              <Icon name={m === 'momo' ? 'wallet' : 'credit-card-outline'} size={22} color={m === 'momo' ? '#A50064' : '#005BAA'} />
-              <Text style={styles.rowTitle}>{m === 'momo' ? 'Ví MoMo' : 'VNPay'}</Text>
-              <View style={{ flex: 1 }} />
-              <Icon name={method === m ? 'radiobox-marked' : 'radiobox-blank'} size={22} color={method === m ? colors.primary : colors.faint} />
-            </Pressable>
-          ))}
-        </View>
-        <Button title={`Nạp ${money(amount)}`} onPress={submit} loading={busy} disabled={amount < 10000} size="lg" />
-      </ScrollView>
-    </Screen>
-  );
-}
 
 // ---------------------------------------------------------------------------
 
@@ -378,6 +330,5 @@ const styles = StyleSheet.create({
   rowMoney: { fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'], color: colors.text },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   bank: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, padding: 14, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line },
-  method: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, padding: 14, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border },
   label: { fontSize: 13, fontWeight: '700', color: colors.body },
 });

@@ -28,12 +28,12 @@ Mục lục
 
 | Chủ đề | Quyết định | Lý do |
 |---|---|---|
-| Ngành nghề | Chỉ **thợ điện**. Danh mục = 4 nhóm chuyên môn trong nghề điện: Sửa chữa điện, Lắp đặt thiết bị điện, Đồ điện gia dụng, Đi dây & tủ điện (13 dịch vụ) | Nhóm chốt thu hẹp phạm vi. Vẫn chia nhóm (không gộp 1 danh mục "Điện") để tiêu chí kỹ năng khi ghép có ý nghĩa: thợ chọn nhóm mình làm được + số năm kinh nghiệm từng nhóm. Code không gắn cứng tên danh mục. |
+| Ngành nghề | Chỉ **thợ điện**. Danh mục = 4 nhóm chuyên môn trong nghề điện: Sửa chữa điện, Lắp đặt thiết bị điện, Đồ điện gia dụng, Đi dây & tủ điện (13 dịch vụ) | Nhóm chốt thu hẹp phạm vi. Vẫn chia nhóm (không gộp 1 danh mục "Điện") để thợ chỉ nhận nhóm việc mình làm được. Số năm kinh nghiệm là **1 con số chung** của thợ, áp cho mọi nhóm đã chọn (khai từng nhóm vừa rườm rà vừa dễ lệch với con số ở hồ sơ). Code không gắn cứng tên danh mục. |
 | Đăng nhập | Email + mật khẩu, Google, Facebook. **Bỏ SMS OTP** | SMS OTP tốn phí. Quên mật khẩu bằng mã 6 số gửi qua email (SMTP miễn phí, VD Gmail). |
 | Bản đồ | **MapLibre GL + OpenFreeMap** (bản đồ vector), tự chuyển sang **Leaflet + OpenStreetMap** nếu máy không có WebGL hoặc không tải được | Miễn phí, không cần API key, không giới hạn lượt. Không dùng CARTO: từ 08/2026 CARTO bắt buộc API key (ảnh nền hiện chữ "API KEY REQUIRED"). Máy chủ ảnh của OpenStreetMap từ 03/2026 bắt buộc có Referer nên chỉ dùng làm dự phòng (app gửi Referer + User-Agent đúng chính sách). Thư viện bản đồ nhúng sẵn trong app (không phụ thuộc CDN). Dẫn đường: mở Google Maps/Apple Maps của máy. |
 | Ai chọn thợ? | **Hệ thống gửi lời mời (offer) cho thợ**, thợ nhận/bỏ qua — giống Grab, bTaskee | Khách không phải tự chọn trong danh sách; thuật toán ghép cặp thực sự quyết định. Chế độ ghép (mặc định **tự động**; tức thời / theo lô để thực nghiệm) do **admin** cấu hình, không do khách chọn. |
 | Realtime | **Socket.IO** (cùng kênh với app khách: `offer:new`, `offer:closed`, `order:updated`, `message:new`, `notification:new`) + hỏi định kỳ làm dự phòng + **Expo Push** (khi có development build) | Lời mời đến ngay (thợ chỉ có 30–60 giây để trả lời); mất kết nối socket thì polling vẫn giữ app đúng. |
-| Tiền | Mô hình **ví thợ** kiểu Grab: online → cộng thực nhận; tiền mặt → trừ hoa hồng 15% (ví có thể âm tới −500.000đ) | Phản ánh đúng thực tế thợ thu tiền mặt tại nhà khách. |
+| Tiền | **Chỉ thanh toán online** (MoMo / VNPay sandbox). Khách trả xong → ví thợ cộng thực nhận (85%) → thợ rút về ngân hàng. Không tiền mặt, không nạp ví, ví không âm | Tiền mặt khó kiểm soát (thợ cầm tiền, nền tảng phải đòi hoa hồng, ví âm, đối soát), không cần cho phạm vi đồ án. Khách còn đơn chưa trả thì chưa đặt được đơn mới, nên thợ không bị "quỵt". |
 | Backend | Viết trong backend **Node.js/Express + PostgreSQL/PostGIS của nhóm** (raw SQL `pg`, migration SQL `node-pg-migrate`), theo đúng quy ước sẵn có: lỗi `{message}`, danh sách `{items,total,page,pageSize}`, Socket.IO phòng `user:<id>` | Nhóm chốt dùng Node.js; app thợ, app khách, web quản trị dùng chung 1 CSDL và 1 API. |
 | Đóng gói | Mỗi phần là 1 Docker image; `docker compose up` là chạy | Theo yêu cầu nhóm. |
 
@@ -41,7 +41,7 @@ Mục lục
 
 | Ứng dụng | Điều học được | Áp dụng trong App Thợ |
 |---|---|---|
-| Grab Driver / Be Driver | Lời mời nhận chuyến toàn màn hình, đếm ngược, hiện **thu nhập thực nhận** trước khi nhận; vuốt để chuyển trạng thái; ví tài xế bị trừ hoa hồng khi khách trả tiền mặt | Màn lời mời (OfferCenter) hiện ở mọi màn, rung máy, vòng đếm ngược, khoảng cách + ETA, thu nhập dự kiến; nút **vuốt để xác nhận** (tránh bấm nhầm khi đang đi đường); ví âm có hạn mức, nạp tiền để trả nợ |
+| Grab Driver / Be Driver | Lời mời nhận chuyến toàn màn hình, đếm ngược, hiện **thu nhập thực nhận** trước khi nhận; vuốt để chuyển trạng thái; ví tài xế bị trừ hoa hồng khi khách trả tiền mặt | Màn lời mời (OfferCenter) hiện ở mọi màn, rung máy, vòng đếm ngược, khoảng cách + ETA, thu nhập dự kiến; nút **vuốt để xác nhận** (tránh bấm nhầm khi đang đi đường). Không lấy mô hình ví âm của Grab vì Thợ Nhanh chỉ nhận thanh toán online |
 | bTaskee, Rada (đối tác dịch vụ tại nhà) | Trang chủ là **việc và lịch hẹn**, không phải bản đồ; công việc đặt lịch trước; khu vực nhận việc | Trang chủ = trạng thái nhận đơn + việc đang làm + số liệu hôm nay + lịch hẹn; bản đồ chỉ ở lời mời và chi tiết việc. Đơn hẹn trước: lời mời ghi rõ giờ hẹn, thợ tự quyết; hệ thống chặn trùng lịch; chỉ được xuất phát trong 60 phút trước giờ hẹn |
 | Urban Company (partner app) | Chuẩn hoá quy trình tại nhà khách: ảnh trước/sau, báo giá phát sinh cần khách đồng ý, chỉ số hiệu suất (tỷ lệ nhận, tỷ lệ hủy, đánh giá) | Ảnh "sau" bắt buộc trước khi hoàn thành, ảnh "trước" được nhắc chụp khi bắt đầu sửa; báo giá phát sinh khách duyệt trong app; màn Hiệu suất 30 ngày |
 
@@ -58,21 +58,21 @@ Nguyên tắc UX rút ra cho thợ (người dùng đang di chuyển, tay bẩn,
 |---|---|---|
 | UC01 | Đăng ký tài khoản thợ (email + mật khẩu) | Hoặc Google / Facebook (tự liên kết nếu trùng email) |
 | UC02 | Đăng nhập / đăng xuất / quên mật khẩu / đổi mật khẩu | Mã quên mật khẩu 6 số, hết hạn 15 phút, tối đa 5 lần nhập sai |
-| UC03 | Hoàn thiện hồ sơ nghề nghiệp (onboarding) | 4 bước: thông tin cá nhân → kỹ năng (dịch vụ) → giấy tờ → gửi duyệt |
+| UC03 | Hoàn thiện hồ sơ nghề nghiệp (onboarding) | Tự mở sau khi đăng ký; có nút X để bỏ qua, vào app trước và nộp sau. 4 bước: thông tin cá nhân (SĐT, số năm kinh nghiệm) → nhóm dịch vụ → giấy tờ → gửi duyệt |
 | UC04 | Tải giấy tờ xác minh | CCCD mặt trước/sau, ảnh chân dung (bắt buộc), chứng chỉ nghề điện (khuyến khích) |
-| UC05 | Theo dõi kết quả duyệt hồ sơ | Bị từ chối giấy tờ nào thì thấy lý do & tải lại đúng giấy tờ đó |
-| UC06 | Bật/tắt nhận đơn | Chỉ khi đã duyệt; app gửi vị trí định kỳ khi đang bật |
+| UC05 | Theo dõi kết quả duyệt hồ sơ | App báo ngay khi admin duyệt / từ chối / bỏ duyệt; bị từ chối thì thấy lý do & tải lại giấy tờ |
+| UC06 | Bật/tắt nhận đơn | Chỉ khi đã duyệt. Chưa duyệt bấm bật → báo nộp giấy tờ (chưa gửi) hoặc chờ quản trị viên duyệt (đã gửi). App gửi vị trí định kỳ khi đang bật |
 | UC07 | Nhận lời mời đơn & chấp nhận / bỏ qua | Đếm ngược; bỏ qua có chọn lý do |
 | UC08 | Xem danh sách công việc (đang làm kể cả lịch hẹn / hoàn thành / đã hủy) | |
 | UC09 | Thực hiện đơn: đang đến → đã đến → bắt đầu sửa → hoàn thành | Vuốt để xác nhận; dẫn đường; gọi / chat với khách. Đơn hẹn trước chỉ bắt đầu di chuyển được trong 60 phút trước giờ hẹn |
 | UC10 | Chụp ảnh trước/sau khi sửa | Ảnh "sau" bắt buộc trước khi hoàn thành; ảnh "trước" được nhắc khi bắt đầu sửa |
 | UC11 | Gửi báo giá phát sinh | Chỉ sau khi đã đến nơi xem hiện trạng; khách duyệt/từ chối trên app khách; thợ có thể rút lại báo giá đang chờ |
-| UC12 | Xác nhận đã thu tiền mặt | Ghi hoa hồng vào ví |
+| UC12 | Theo dõi khách thanh toán | Khách trả MoMo / VNPay trên app khách; trả xong thì 85% vào ví thợ, app thợ báo ngay. Không nhận tiền mặt |
 | UC13 | Hủy đơn đã nhận (có lý do) | Trước khi đến nơi: đơn quay lại hàng đợi tìm thợ khác; đã đến nơi: hủy đơn |
 | UC14 | Báo cáo sự cố (khách vắng mặt, không thanh toán, tranh chấp...) | Tạo khiếu nại cho admin |
 | UC15 | Chat với khách theo đơn | |
 | UC16 | Xem thu nhập theo ngày/tuần/tháng + biểu đồ | |
-| UC17 | Quản lý ví: số dư, lịch sử giao dịch, rút tiền, nạp tiền trả nợ hoa hồng | Rút tiền tối thiểu 50.000đ, cần tài khoản ngân hàng |
+| UC17 | Quản lý ví: số dư, lịch sử giao dịch, rút tiền | Rút tiền tối thiểu 50.000đ, cần tài khoản ngân hàng |
 | UC18 | Xem lịch hẹn sắp tới, được nhắc trước giờ hẹn 60 phút | Không có khung giờ làm việc theo tuần: bật = nhận đơn, tắt = nghỉ (xem mục 11c) |
 | UC19 | Cài đặt khu vực & bán kính nhận việc (chọn trên bản đồ) | |
 | UC20 | Xem đánh giá của khách & hiệu suất 30 ngày | |
@@ -135,8 +135,8 @@ sequenceDiagram
         K->>S: Duyệt / từ chối
     end
     T->>A: Chụp ảnh sau → "Hoàn thành"
-    K->>S: Thanh toán (tiền mặt / MoMo / VNPay sandbox), đánh giá
-    T->>A: "Đã thu tiền mặt" (nếu tiền mặt)
+    K->>S: Thanh toán (MoMo / VNPay sandbox), đánh giá
+    S-->>A: "Khách đã thanh toán" (ví thợ + 85%)
 ```
 
 ### 4.3. Thanh toán và ví
@@ -189,7 +189,6 @@ Quy trình 3 bước, dùng chung cho cả 2 chế độ:
    - đơn đặt ngay: thợ đang `online` (rảnh); đơn hẹn trước: `online` hoặc `busy`;
    - không đang giữ lời mời khác (mỗi thợ tối đa 1 offer sống);
    - **chưa từng được mời đơn này** (ràng buộc UNIQUE(order_id, worker_id));
-   - ví không âm quá hạn mức (−500.000đ);
    - đơn hẹn: không trùng lịch hẹn khác của thợ trong ±120 phút (lời mời ghi rõ giờ hẹn để thợ tự quyết nhận hay không).
 3. **Chấm điểm** Weighted Scoring rồi chọn theo chế độ.
 
@@ -203,7 +202,7 @@ $$S(o,w) = w_d\,s_d + w_t\,s_t + w_s\,s_s + w_a\,s_a + w_l\,s_l,\qquad \sum w = 
 |---|---|---|
 | Khoảng cách $s_d$ | $\max(0,\,1 - d/R)$ | $d$: khoảng cách PostGIS thợ–khách, $R$: bán kính tìm của cấu hình |
 | Tin cậy $s_t$ | `trust_score` ∈ [0,1]; thợ mới chưa có đơn/đánh giá (điểm = 0): **0,5** | Kết quả thuật toán Trust Score (thành viên A). Mức trung tính cho thợ mới để không bị xếp cuối mãi (cold start) |
-| Kỹ năng $s_s$ | $\min(y, 10)/10$ | $y$: số năm kinh nghiệm ở đúng nhóm dịch vụ của đơn (thợ tự khai ở màn Nhóm dịch vụ) |
+| Kỹ năng $s_s$ | $\min(y, 10)/10$ | $y$: số năm kinh nghiệm của thợ (1 con số chung, khai ở Thông tin cá nhân; lưu đồng bộ vào `worker_skills.years` của mọi nhóm thợ nhận làm). Điều kiện "đúng nhóm" đã là ràng buộc cứng ở bước lọc |
 | Nhận đơn $s_a$ | $\dfrac{\text{nhận} + 3}{\text{nhận} + \text{bỏ lỡ} + 3}$ trong 30 ngày | Làm mượt Bayes (3 lần nhận "ảo"); không tính lời mời bị đóng sớm vì thợ khác nhận / khách huỷ |
 | Khối lượng $s_l$ | $1 - \min(k,5)/5$ | $k$: số đơn trong ngày — chia đều việc |
 
@@ -277,20 +276,20 @@ Hoa hồng nền tảng $c = 15\%$ (`COMMISSION_RATE`). Với tổng tiền đơ
 
 | Khách trả | Ghi nhận | Ví thợ |
 |---|---|---|
-| Online (MoMo/VNPay sandbox) | Nền tảng thu $P$ | **+ (P − cP)** (thực nhận) |
-| Tiền mặt | Thợ cầm $P$; thợ bấm "Đã thu tiền" | **− cP** (nợ hoa hồng) |
+| Online (MoMo/VNPay sandbox) — cách duy nhất | Nền tảng thu $P$ | **+ (P − cP)** (thực nhận) |
 
-Ví dụ: đơn 400.000đ trả tiền mặt → ví −60.000đ, thợ thực nhận 340.000đ (đang cầm). Ví âm quá −500.000đ → tạm không nhận đơn mới cho đến khi nạp tiền.
+Ví dụ: đơn 400.000đ → khách trả 400.000đ qua MoMo → ví thợ +340.000đ, nền tảng giữ 60.000đ.
+**Không nhận tiền mặt** (API thanh toán từ chối `cash`): nền tảng không phải đòi hoa hồng từ thợ, ví thợ không bao giờ âm, mọi khoản tiền đều có giao dịch đối soát được. Đổi lại phải chặn khách "quỵt": khách còn đơn đã hoàn thành mà chưa trả thì **chưa đặt được đơn mới**, app thợ hiện "Chờ khách thanh toán qua app" kèm số tiền sẽ vào ví.
 Rút tiền: ≥ 50.000đ, không vượt số dư khả dụng, cần tài khoản ngân hàng; bản demo tự duyệt (`WITHDRAWAL_AUTO_APPROVE=true`), admin vẫn có API duyệt/từ chối.
-Số dư nằm ở `workers.wallet_balance` (bảng của nhóm); mỗi biến động ví là 1 dòng `worker_transactions` có `balance_after` (sổ cái, UNIQUE theo đơn + loại để không ghi trùng). Phần ghi ví được gọi ngay trong `settlePayment` của app khách (cùng transaction), nên đơn trả online hay tiền mặt đều chốt hoa hồng đúng 1 lần.
+Số dư nằm ở `workers.wallet_balance` (bảng của nhóm); mỗi biến động ví là 1 dòng `worker_transactions` có `balance_after` (sổ cái, UNIQUE theo đơn + loại để không ghi trùng). Phần ghi ví được gọi ngay trong `settlePayment` của app khách (cùng transaction), nên mỗi đơn chỉ cộng thực nhận đúng 1 lần.
 
 ## 9. Thay đổi cơ sở dữ liệu
 
-Migration `backend-node/migrations/1792200000000_worker-app-matching.sql` (node-pg-migrate, có phần `down`; Docker tự chạy khi khởi động). Chỉ **thêm** vào schema của nhóm, không đổi hay xoá cột có sẵn:
+Migration `backend-node/migrations/1792200000000_worker-app-matching.sql` (node-pg-migrate, có phần `down`; Docker tự chạy khi khởi động). Chỉ **thêm** vào schema của nhóm, không đổi hay xoá cột có sẵn. Migration `1792300000000_kinh-nghiem-chung.sql` chỉ đồng bộ dữ liệu cũ: `worker_skills.years` = `workers.experience_years`.
 
 | Thay đổi | Mục đích |
 |---|---|
-| enum: `offer_status.cancelled`, `quote_status.cancelled`, `wallet_txn_type.topup` | Thợ huỷ sau khi nhận, thợ rút báo giá, nạp ví |
+| enum: `offer_status.cancelled`, `quote_status.cancelled`, `wallet_txn_type.topup` | Thợ huỷ sau khi nhận, thợ rút báo giá; `topup` (nạp ví) không còn dùng từ khi bỏ tiền mặt — PostgreSQL không xoá được giá trị enum nên vẫn để |
 | `workers.submitted_at` | Thời điểm gửi hồ sơ (admin xếp hàng duyệt) |
 | `orders.safety_checked_at` | Lưu vết thợ đã xác nhận kiểm tra an toàn điện lúc bắt đầu sửa |
 | `order_offers.round`, `order_offers.reason` + index offer đang mở | Đợt mời; lý do đóng (`closed`, `offline`...) để không tính nhầm là thợ bỏ lỡ |
@@ -310,12 +309,12 @@ Tiền tố `/api/worker`, xác thực `Authorization: Bearer <JWT>`; trả JSON
 | Nhóm | Endpoint |
 |---|---|
 | Xác thực | `POST /auth/register`, `POST /auth/login` (email hoặc SĐT), `GET /auth/providers`, `POST /auth/google`, `POST /auth/facebook`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `POST /auth/change-password`, `GET /auth/me` |
-| Hồ sơ | `GET /me`, `PATCH /profile`, `PUT /skills` (nhóm dịch vụ + số năm kinh nghiệm), `GET/POST /documents`, `DELETE /documents/:id`, `POST /verification/submit`, `GET/PUT /bank-account` |
+| Hồ sơ | `GET /me`, `PATCH /profile` (gồm số năm kinh nghiệm chung), `PUT /skills` `{ category_ids }` (nhóm dịch vụ), `GET/POST /documents`, `DELETE /documents/:id`, `POST /verification/submit`, `GET/PUT /bank-account` |
 | Trang chủ & trạng thái | `GET /home`, `PATCH /availability`, `PATCH /location` |
 | Lời mời | `GET /offers/current`, `POST /offers/:id/accept`, `POST /offers/:id/reject` |
-| Công việc | `GET /orders?group=active\|completed\|cancelled\|history`, `GET /orders/:id`, `POST …/status`, `POST …/cancel`, `POST …/photos`, `DELETE …/photos/:photoId`, `POST …/extra-quotes`, `POST …/extra-quotes/:quoteId/cancel`, `POST …/confirm-cash`, `POST …/report`, `GET /reports` |
+| Công việc | `GET /orders?group=active\|completed\|cancelled\|history`, `GET /orders/:id`, `POST …/status`, `POST …/cancel`, `POST …/photos`, `DELETE …/photos/:photoId`, `POST …/extra-quotes`, `POST …/extra-quotes/:quoteId/cancel`, `POST …/report`, `GET /reports` |
 | Chat | `GET/POST /orders/:id/messages`, `POST /orders/:id/messages/read` (chung bảng `messages` với app khách) |
-| Thu nhập & ví | `GET /earnings/summary`, `GET /earnings`, `GET /wallet`, `GET /wallet/transactions`, `GET/POST /wallet/withdrawals`, `POST /wallet/topup` |
+| Thu nhập & ví | `GET /earnings/summary`, `GET /earnings`, `GET /wallet`, `GET /wallet/transactions`, `GET/POST /wallet/withdrawals` |
 | Đánh giá & hiệu suất | `GET /reviews`, `GET /performance` |
 | Khác | `GET /catalog/categories`, `GET /catalog/services`, thông báo `/notifications…`, `POST/DELETE /device-tokens` |
 | Dùng chung | `POST /api/uploads` (ảnh ≤ 8 MB, nhận dạng theo nội dung file), `GET /media/…`, `GET /api/health` |
@@ -323,7 +322,7 @@ Tiền tố `/api/worker`, xác thực `Authorization: Bearer <JWT>`; trả JSON
 
 Realtime (Socket.IO cùng cổng 3000, `auth: { token }`): `offer:new`, `offer:closed`, `order:updated`, `message:new`, `notification:new`.
 
-`GET /orders/:id` trả sẵn **cờ hành động** (`next_status`, `next_action`, `start_available_at`, `can_cancel`, `cancel_requeues`, `can_quote`, `can_add_photos`, `can_confirm_cash`, `can_chat`, `can_report`, `needs_after_photo`, `needs_safety_check`, `has_pending_quote`, `amount_to_collect`, `customer_chose_cash`) → luật nghiệp vụ nằm ở server, app chỉ hiển thị, tránh lệch logic giữa app và backend.
+`GET /orders/:id` trả sẵn **cờ hành động** (`next_status`, `next_action`, `start_available_at`, `can_cancel`, `cancel_requeues`, `can_quote`, `can_add_photos`, `can_chat`, `can_report`, `needs_after_photo`, `needs_safety_check`, `has_pending_quote`, `awaiting_payment`, `amount_due`) → luật nghiệp vụ nằm ở server, app chỉ hiển thị, tránh lệch logic giữa app và backend.
 
 `POST /orders/:id/status` nhận `{status, safety_confirmed}`; chuyển sang `in_progress` mà thiếu `safety_confirmed=true` → 400; đơn hẹn trước chuyển sang `on_the_way` sớm hơn 60 phút trước giờ hẹn → 400 (`start_available_at` cho app biết giờ sớm nhất). Báo giá phát sinh khi chưa đến nơi → 400.
 `GET /earnings/summary` so sánh với **cùng kỳ** (VD tuần này mới tới Thứ 3 thì so với Thứ 2–Thứ 3 tuần trước), tránh kiểu "-78%" vô nghĩa khi tuần mới bắt đầu.
@@ -331,7 +330,7 @@ Realtime (Socket.IO cùng cổng 3000, `auth: { token }`): `offer:new`, `offer:c
 ## 11. Kiến trúc App Thợ
 
 - **Expo SDK 57** (React Native 0.86, React 19.2, TypeScript), chạy được Android, iOS và **web** (để demo bằng trình duyệt).
-- Điều hướng: React Navigation 7 — Stack gốc (Auth / Onboarding / Main) + 4 tab: *Trang chủ, Công việc, Thu nhập, Hồ sơ*.
+- Điều hướng: React Navigation 7 — Stack gốc gồm 2 bộ màn: *chưa đăng nhập* (Đăng nhập, Đăng ký...) và *đã đăng nhập* (4 tab *Trang chủ, Công việc, Thu nhập, Hồ sơ* + các màn chi tiết + Hoàn thiện hồ sơ). Bộ màn **không đổi theo trạng thái duyệt**: bản trước tách riêng bộ màn "chưa duyệt", admin bỏ duyệt lúc thợ đang mở 1 màn thì cả stack bị thay, bấm ← bị đơ.
 - Dữ liệu: TanStack Query 5 + **Socket.IO** (`src/realtime/useRealtime.ts`): sự kiện từ server chỉ làm app tải lại đúng phần liên quan. Hỏi định kỳ làm dự phòng khi màn đang mở (lời mời 15 s khi socket đang nối / 3 s khi mất kết nối, chat 4 s, chi tiết đơn 6 s, trang chủ 8 s, danh sách việc 10 s); tự tải lại khi app quay về foreground hoặc socket nối lại.
 - Vị trí: `expo-location`, gửi khi đang bật nhận đơn hoặc đang có việc (đang đến / đã đến / đang sửa).
 - Bản đồ: 1 trang HTML chạy trong WebView (điện thoại) / iframe (web), giao tiếp `postMessage`. Trong trang: MapLibre GL (vector OpenFreeMap) hoặc Leaflet (OSM) — cùng 1 API nội bộ `setData({markers, circle, line, fit, padding, chromeBottom})`. Chỉ căn lại khung nhìn khi `fitKey` đổi để không giật khi vị trí cập nhật. Bản đồ chỉ có ở: lời mời nhận đơn, chi tiết việc khi còn phải di chuyển (chạm để mở toàn màn hình), khu vực nhận việc.
@@ -379,7 +378,12 @@ Mục tiêu: nhìn vào là biết app của **thợ điện**, dùng được n
 | **Giữ đếm ngược ở lời mời** (mặc định 60 giây, admin chỉnh trong cấu hình ghép) | Hệ thống mời lần lượt từng nhóm thợ; thợ không trả lời thì đơn phải chuyển người khác, khách không thể chờ mãi. Grab, Be, Gojek đều làm vậy; 60 giây đủ cho thợ đang dở tay |
 | **Báo giá phát sinh = danh sách mục như hóa đơn**: mục trong bảng giá chung **giá cố định**, chỉ chọn số lượng; mục ngoài bảng giá thì thợ tự nhập tên + đơn giá (ghi rõ "giá do thợ nhập"); bỏ các nút +50K/+100K | Bảng giá cố định giúp khách tin, tránh "hét giá"; nhưng vật tư khác hãng/khác loại vẫn phải báo được. Một báo giá gồm nhiều mục vì mỗi lúc chỉ được có 1 báo giá chờ duyệt |
 | **Báo giá chờ duyệt không gạch ngang**, tô vàng + dòng "khách đồng ý thì bạn nhận thêm …, tổng …" | Gạch ngang chỉ dành cho khoản không tính (đã rút / bị từ chối); trước đây khoản chờ duyệt cũng bị gạch nên khó hiểu |
-| **Giữ ví với Nạp tiền / Rút tiền** (bản demo giả lập, không trừ tiền thật) | Ví là chỗ bù trừ hoa hồng: đơn MoMo/VNPay thì nền tảng giữ tiền rồi cộng 85% vào ví (thợ cần **rút**); đơn tiền mặt thì thợ giữ hết, ví bị trừ 15% (ví âm, thợ cần **nạp**). Âm quá 500.000đ thì bộ điều phối ngừng mời. Bỏ đi thì không thu được phí đơn tiền mặt. Backend có sẵn API duyệt rút tiền cho web quản trị |
+| **Bỏ tiền mặt: mọi đơn trả qua MoMo / VNPay; ví chỉ còn Rút tiền** (bản demo giả lập, không trừ tiền thật) | Tiền mặt buộc nền tảng đòi hoa hồng từ thợ (ví âm, nạp tiền, hạn mức nợ, đối soát) — phức tạp mà không cần cho đồ án. Thanh toán online thì nền tảng giữ tiền, cộng 85% vào ví, thợ rút về ngân hàng. Khách còn nợ đơn cũ thì chưa đặt đơn mới. Backend có sẵn API duyệt rút tiền cho web quản trị |
+| **Chưa được duyệt vẫn vào app**; đăng ký xong tự mở màn Hoàn thiện hồ sơ, có nút X để bỏ qua | Thợ mới thường chưa mang theo CCCD lúc đăng ký; chặn ở cửa khiến họ bỏ app. Vào trước để xem app, nộp sau; chỉ chặn đúng chỗ cần chặn là bật nhận đơn, kèm câu báo nộp giấy tờ / chờ duyệt |
+| **Số năm kinh nghiệm: 1 con số chung** (không khai riêng từng nhóm dịch vụ) | Khai từng nhóm vừa rườm rà vừa lệch với con số ở hồ sơ; thợ điện dân dụng thường làm cả 4 nhóm. Ràng buộc "đúng nhóm" vẫn do bước lọc đảm bảo |
+| **Mật khẩu ≥ 8 ký tự, có cả chữ và số, chặn mật khẩu quá phổ biến**; không bắt chữ hoa / ký tự đặc biệt | Theo NIST SP 800-63B: độ dài và chặn mật khẩu hay bị đoán có ích hơn quy tắc ký tự (vốn khiến người dùng đặt "Abc@1234" rồi ghi ra giấy). Thêm "có chữ và số" để chặn mật khẩu toàn số (ngày sinh, SĐT) — kiểu hay gặp ở thợ. App hiện danh sách điều kiện tick xanh dần khi gõ |
+| **Kéo xuống để tải lại ở mọi màn có dữ liệu**, và tự tải lại khi quay về màn (bấm ←, đổi tab) | Thói quen chung của app di động; không phải thoát ra vào lại mới thấy thay đổi. Kết quả duyệt hồ sơ, thanh toán còn được đẩy realtime |
+| **"Hợp lệ" ở giấy tờ chỉ hiện khi cả hồ sơ đang được duyệt** | Hồ sơ bị từ chối / bỏ duyệt mà ảnh vẫn ghi "Hợp lệ" làm thợ hiểu nhầm; lúc đó ảnh hiện "Đã tải lên" hoặc "Bị từ chối" kèm lý do chung của admin |
 | **Cỡ chữ của máy được tôn trọng nhưng tối đa 130%**; dòng có số tiền luôn để chữ bên trái co lại, số tiền giữ nguyên | Máy Oppo/Realme hay để chữ to: trước đó số tiền ở thẻ đơn bị đẩy ra ngoài khung |
 
 ## 12. Kiểm thử
@@ -387,8 +391,8 @@ Mục tiêu: nhìn vào là biết app của **thợ điện**, dùng được n
 | Loại | Nội dung | Kết quả |
 |---|---|---|
 | Đơn vị (`backend-node/test/algorithms.test.js`, không cần CSDL) | Hungarian so với **vét cạn** trên 300 ma trận ngẫu nhiên (có ô không hợp lệ, n≠m) — cùng số cặp, cùng tổng điểm; ví dụ kinh điển Greedy thua; ưu tiên nhiều cặp hơn điểm cao; ma trận rỗng/toàn ô không hợp lệ; ma trận lớn không bao giờ thua Greedy; Union-Find nối bắc cầu; hàm điểm 5 tiêu chí + xếp hạng ổn định; hạng thợ | 8/8 đạt |
-| Tích hợp (`backend-node/test/worker-flow.test.js`, PostgreSQL/PostGIS thật, đi qua đúng API app thợ + app khách + admin) | đăng nhập email/SĐT, chặn sai vai trò; quên mật khẩu; Google/Facebook (giả lập phản hồi của Google/Meta); tải ảnh (chặn file giả ảnh); onboarding → admin từ chối → gửi lại → duyệt (thợ được báo); giấy tờ đã duyệt; **luồng đầy đủ**: offer → nhận → đi → đến → an toàn → báo giá → ảnh → xong → tiền mặt → ví → đánh giá → rút tiền; trả MoMo sandbox → ví cộng thực nhận; ví âm quá hạn mức bị chặn; bộ điều phối: từ chối → đợt sau, hết giờ, quá hạn → huỷ, thợ tắt app → lời mời đi tiếp; thợ huỷ → đơn quay lại hàng đợi; chế độ batch (Hungarian), **auto** (nhóm tranh chấp → Hungarian, đơn đứng riêng → Greedy); đơn hẹn: chặn trùng lịch, chỉ xuất phát trong 60 phút trước giờ hẹn; lọc kỹ năng / bán kính / vị trí cũ; thợ mới (cold start); khách / admin huỷ → app thợ được báo ngay; Socket.IO (`offer:new`, `worker:location`); API admin điều phối + rút tiền | 19/19 đạt (`npm test` chạy cả 2 file: 27/27) |
-| End-to-end giao diện | Playwright + Chromium chạy bản web của app trên backend Node với CSDL seed mới: đăng nhập, bật nhận đơn, lời mời hiện kèm bản đồ, nhận đơn, vuốt qua các bước, **bị chặn khi chưa tick checklist an toàn**, báo giá từ bảng giá → khách duyệt, ảnh sau, hoàn thành, khách trả tiền mặt → thợ xác nhận, khách đánh giá; đăng ký thợ mới qua onboarding; web quản trị của nhóm duyệt hồ sơ, đổi chế độ ghép | Đạt |
+| Tích hợp (`backend-node/test/worker-flow.test.js`, PostgreSQL/PostGIS thật, đi qua đúng API app thợ + app khách + admin) | đăng nhập email/SĐT, chặn sai vai trò; quên mật khẩu; Google/Facebook (giả lập phản hồi của Google/Meta); tải ảnh (chặn file giả ảnh); onboarding → admin từ chối → gửi lại → duyệt (thợ được báo); giấy tờ đã duyệt; **luồng đầy đủ**: offer → nhận → đi → đến → an toàn → báo giá → ảnh → xong → khách trả MoMo sandbox → ví cộng thực nhận → đánh giá → rút tiền; từ chối tiền mặt, nợ đơn thì không đặt được đơn mới; quy tắc mật khẩu; trạng thái duyệt + câu báo khi bật nhận đơn; kinh nghiệm chung đồng bộ mọi nhóm; admin bỏ duyệt → thợ bị tắt nhận đơn, lời mời bị thu hồi; bộ điều phối: từ chối → đợt sau, hết giờ, quá hạn → huỷ, thợ tắt app → lời mời đi tiếp; thợ huỷ → đơn quay lại hàng đợi; chế độ batch (Hungarian), **auto** (nhóm tranh chấp → Hungarian, đơn đứng riêng → Greedy); đơn hẹn: chặn trùng lịch, chỉ xuất phát trong 60 phút trước giờ hẹn; lọc kỹ năng / bán kính / vị trí cũ; thợ mới (cold start); khách / admin huỷ → app thợ được báo ngay; Socket.IO (`offer:new`, `worker:location`); API admin điều phối + rút tiền | 19/19 đạt (`npm test` chạy cả 2 file: 27/27) |
+| End-to-end giao diện | Playwright + Chromium chạy bản web của app trên backend Node với CSDL seed mới: đăng nhập, bật nhận đơn, lời mời hiện kèm bản đồ, nhận đơn, vuốt qua các bước, **bị chặn khi chưa tick checklist an toàn**, báo giá từ bảng giá → khách duyệt, ảnh sau, hoàn thành, khách trả MoMo → thợ thấy tiền vào ví, khách đánh giá; đăng ký thợ mới → màn Hoàn thiện hồ sơ → bấm X → Trang chủ chặn bật nhận đơn kèm câu báo; admin bỏ duyệt khi thợ đang ở màn Giấy tờ → app báo ngay, bấm ← không đơ, duyệt lại → app chúc mừng; web quản trị của nhóm duyệt hồ sơ, đổi chế độ ghép | Đạt |
 | Giao diện điện thoại | Chụp từng màn ở khung Android 393×851 có giả lập thanh trạng thái 32 px + 3 nút điều hướng 48 px | Đạt |
 | Build | `tsc --noEmit`; `expo export` web/android | Đạt |
 

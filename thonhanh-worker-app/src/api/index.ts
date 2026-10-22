@@ -65,7 +65,8 @@ export const api = {
     experience_years?: number;
     service_radius_km?: number;
   }) => http.patch<WorkerMe>(`${W}/profile`, data),
-  setSkills: (skills: { category_id: number; years: number }[]) => http.put<WorkerSkill[]>(`${W}/skills`, { skills }),
+  /** Chọn nhóm dịch vụ nhận làm; số năm kinh nghiệm lấy theo hồ sơ (1 con số chung) */
+  setSkills: (categoryIds: number[]) => http.put<WorkerSkill[]>(`${W}/skills`, { category_ids: categoryIds }),
   addDocument: (docType: DocType, fileUrl: string) =>
     http.post<WorkerDocument>(`${W}/documents`, { doc_type: docType, file_url: fileUrl }),
   deleteDocument: (id: number) => http.del<{ message: string }>(`${W}/documents/${id}`),
@@ -93,7 +94,6 @@ export const api = {
   createQuote: (id: number, description: string, amount: number) =>
     http.post<JobDetail>(`${W}/orders/${id}/extra-quotes`, { description, amount }),
   cancelQuote: (id: number, quoteId: number) => http.post<JobDetail>(`${W}/orders/${id}/extra-quotes/${quoteId}/cancel`),
-  confirmCash: (id: number) => http.post<JobDetail>(`${W}/orders/${id}/confirm-cash`),
   report: (id: number, reason: string, description?: string | null) =>
     http.post<Report>(`${W}/orders/${id}/report`, { reason, description: description || null }),
   reports: (page = 1) => http.get<Paginated<Report>>(`${W}/reports`, { page, pageSize: 20 }),
@@ -105,7 +105,6 @@ export const api = {
   walletTransactions: (page = 1) => http.get<Paginated<WalletTx>>(`${W}/wallet/transactions`, { page, pageSize: 30 }),
   withdraw: (amount: number) => http.post<Withdrawal>(`${W}/wallet/withdrawals`, { amount }),
   withdrawals: (page = 1) => http.get<Paginated<Withdrawal>>(`${W}/wallet/withdrawals`, { page, pageSize: 20 }),
-  topup: (amount: number, method: 'momo' | 'vnpay') => http.post<Wallet>(`${W}/wallet/topup`, { amount, method }),
 
   // ---------- Đánh giá & hiệu suất ----------
   reviews: (rating: number | null, page = 1) => http.get<ReviewsPage>(`${W}/reviews`, { rating: rating ?? undefined, page, pageSize: 20 }),

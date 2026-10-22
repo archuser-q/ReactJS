@@ -15,6 +15,7 @@ import { StateView } from '../../components/StateView';
 import { useRootNav } from '../../navigation/types';
 import { colors, gradients, GRADIENT_PROPS, radius } from '../../theme';
 import { fmtWhenInline, money, moneyShort, orderCode, PAYMENT_LABEL, vnTodayKey } from '../../utils/format';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 
 export default function EarningsScreen() {
   const navigation = useRootNav();
@@ -25,6 +26,7 @@ export default function EarningsScreen() {
   const wallet = useQuery({ queryKey: qk.wallet, queryFn: api.wallet, refetchInterval: focused ? 30000 : false });
   const recent = useQuery({ queryKey: qk.earningItems, queryFn: () => api.earnings(1, 5) });
   const me = useWorkerMe();
+  useRefetchOnFocus(sum.refetch, wallet.refetch, recent.refetch);
 
   const s = sum.data;
   const w = wallet.data;
@@ -44,28 +46,20 @@ export default function EarningsScreen() {
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={sum.isRefetching || wallet.isRefetching} onRefresh={refresh} tintColor={colors.primary} />}
       >
-        <LinearGradient colors={w && w.balance < 0 ? gradients.dark : gradients.primary} {...GRADIENT_PROPS} style={styles.wallet}>
+        <LinearGradient colors={gradients.primary} {...GRADIENT_PROPS} style={styles.wallet}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="wallet-outline" size={16} color="rgba(255,255,255,0.8)" />
             <Text style={styles.walletLabel}>Số dư ví</Text>
           </View>
-          <Text style={[styles.balance, w && w.balance < 0 && { color: '#FCA5A5' }]}>{w ? money(w.balance) : '...'}</Text>
-          {/* Ví là nơi nền tảng và thợ "thanh toán bù trừ": đơn online tiền vào ví, đơn tiền mặt thì phí trừ từ ví */}
-          {w && w.balance < 0 ? (
-            <Text style={styles.walletNote}>
-              Âm do phí {pctRate} của các đơn tiền mặt. Âm quá {money(Math.abs(w.debt_limit))} sẽ tạm ngừng nhận đơn, nạp tiền để bù.
-            </Text>
-          ) : (
-            <Text style={styles.walletNote}>Đơn MoMo/VNPay: tiền vào ví sau khi trừ phí {pctRate}. Đơn tiền mặt: bạn giữ tiền, ví trừ phí {pctRate}.</Text>
-          )}
+          <Text style={styles.balance}>{w ? money(w.balance) : '...'}</Text>
+          {/* Mọi đơn khách trả qua MoMo / VNPay: tiền vào ví thợ ngay sau khi trừ phí, thợ rút về ngân hàng */}
+          <Text style={styles.walletNote}>
+            Khách trả qua MoMo / VNPay, tiền vào ví ngay sau khi trừ phí {pctRate}. Rút về ngân hàng từ {money(w?.min_withdrawal ?? me.data?.settings.min_withdrawal ?? 50000)}.
+          </Text>
           <View style={styles.walletBtns}>
             <Pressable onPress={() => navigation.navigate('Withdraw')} style={styles.walletBtn}>
               <Icon name="bank-transfer-out" size={16} color="#fff" />
               <Text style={styles.walletBtnText}>Rút tiền</Text>
-            </Pressable>
-            <Pressable onPress={() => navigation.navigate('Topup')} style={styles.walletBtn}>
-              <Icon name="plus-circle-outline" size={16} color="#fff" />
-              <Text style={styles.walletBtnText}>Nạp tiền</Text>
             </Pressable>
             <Pressable onPress={() => navigation.navigate('WalletHistory')} style={styles.walletBtn}>
               <Icon name="history" size={16} color="#fff" />
@@ -124,16 +118,12 @@ export default function EarningsScreen() {
               <StatBox label="Số đơn" value={String(s.totals.orders)} sub="đã thanh toán" />
               <StatBox label="TB / đơn" value={moneyShort(s.totals.avg_net_per_order)} sub="thực nhận" />
             </View>
-            <View style={styles.grid}>
-              <StatBox label="Tiền mặt đã thu" value={moneyShort(s.totals.cash_collected)} sub="đang giữ trong túi" />
-              <StatBox label="Nhận qua ví" value={moneyShort(s.totals.online_received)} sub="MoMo / VNPay" color={colors.primary} />
-            </View>
 
             {s.unpaid_orders ? (
               <Banner
                 tone="warning"
                 icon="cash-clock"
-                text={`${s.unpaid_orders} đơn chờ thanh toán · ${money(s.unpaid_amount)}`}
+                text={`${s.unpaid_orders} đơn chờ khách thanh toán qua app · ${money(s.unpaid_amount)}`}
                 action="Xem"
                 onPress={() => navigation.navigate('Main', { screen: 'Jobs', params: { group: 'completed' } })}
               />

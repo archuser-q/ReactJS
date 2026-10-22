@@ -1,7 +1,7 @@
 /**
  * Màn làm việc của 1 đơn — nơi thợ dùng nhiều nhất:
  * bản đồ + dẫn đường, gọi/nhắn khách, tiến độ (vuốt để xác nhận), ảnh trước/sau,
- * báo giá phát sinh, thu tiền, xem đánh giá & bảo hành.
+ * báo giá phát sinh, theo dõi khách thanh toán qua app, xem đánh giá & bảo hành.
  * Bản đồ chỉ hiện khi còn phải di chuyển (đã nhận / đang đi); chạm vào để xem toàn màn hình.
  * Đã đến nơi trở đi: bỏ bản đồ, nhường chỗ cho checklist an toàn, ảnh, báo giá.
  */
@@ -11,6 +11,7 @@ import { Text } from '../../components/Text';
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { api, errMsg, qk, type JobDetail } from '../../api';
 import { useWorkerMe } from '../../auth/AuthContext';
 import { Avatar, Banner, Card, Divider, KeyValue, SectionTitle, StarRating, Tag } from '../../components/Bits';
@@ -53,7 +54,7 @@ const ADVANCE_TOAST: Record<string, string> = {
   on_the_way: 'Đã báo khách bạn đang tới',
   arrived: 'Đã báo khách bạn đã đến',
   in_progress: 'Bắt đầu sửa chữa',
-  completed: 'Hoàn thành công việc! Nhớ thu tiền nếu khách trả tiền mặt',
+  completed: 'Hoàn thành công việc! Khách thanh toán qua app, tiền tự vào ví của bạn',
 };
 
 export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobDetail'>) {
@@ -63,6 +64,7 @@ export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobD
   const ui = useOverlay();
   const insets = useSafeAreaInsets();
   const q = useQuery({ queryKey: qk.job(orderId), queryFn: () => api.job(orderId), refetchInterval: focused ? 6000 : false });
+  useRefetchOnFocus(q.refetch); // quay lại từ màn chat / báo cáo
   const j = q.data;
   const inflight = !!j && INFLIGHT.includes(j.status);
   const me = useWorkerMe({ poll: focused && inflight ? 15000 : undefined });
@@ -201,26 +203,6 @@ export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobD
     } catch (e) {
       void ui.alert('Chưa cập nhật được', errMsg(e), 'danger');
       void q.refetch();
-    }
-  };
-
-  const confirmCash = async () => {
-    const ok = await ui.confirm({
-      title: 'Đã thu tiền mặt?',
-      message: `Xác nhận bạn đã nhận đủ ${money(j.amount_to_collect)} từ khách. Phí nền tảng ${Math.round(rate * 100)}% sẽ được trừ vào ví.`,
-      confirmText: 'Đã nhận đủ',
-      tone: 'success',
-    });
-    if (!ok) return;
-    try {
-      const res = await api.confirmCash(j.id);
-      setJob(res);
-      ui.toast(`Đã xác nhận thu ${money(res.earning?.gross_amount ?? j.amount_to_collect)} tiền mặt`);
-      refreshLists();
-      void qc.invalidateQueries({ queryKey: qk.wallet });
-      void qc.invalidateQueries({ queryKey: ['earnings'] });
-    } catch (e) {
-      void ui.alert('Chưa xác nhận được', errMsg(e), 'danger');
     }
   };
 
@@ -406,7 +388,9 @@ export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobD
                 <Icon name="navigation-variant" size={20} color={palette.volt} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.navTitle}>Dẫn đường</Text>
-                  <Text style={styles.navSub}>{km !== null && km !== undefined ? `${fmtKm(km)}, khoảng ${etaMinutes(km)} phút` : 'Mở Google Maps'}</Text>
+                  <Text style={styles.navSub}>
+                    {km !== null && km !== undefined ? `${fmtKm(km)} đường chim bay, khoảng ${etaMinutes(km)} phút` : 'Mở Google Maps'}
+                  </Text>
                 </View>
               </Pressable>
             </View>
@@ -537,21 +521,27 @@ export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobD
           {j.status === 'completed' ? (
             <Card style={{ gap: 10 }}>
               <SectionTitle>Thanh toán</SectionTitle>
+              {/* Không nhận tiền mặt: khách trả qua MoMo / VNPay trên app khách, phần thực nhận tự vào ví thợ */}
               {j.paid ? (
-                <Banner tone="success" text={`Khách đã thanh toán ${money(j.total_amount)} qua ${PAYMENT_LABEL[j.payment_method ?? 'cash']}`} />
-              ) : pendingPayment && pendingPayment.method !== 'cash' ? (
                 <Banner
-                  tone="info"
-                  icon="cellphone-check"
-                  text={`Khách đang thanh toán qua ${PAYMENT_LABEL[pendingPayment.method]}. Nếu khách đưa tiền mặt, bấm xác nhận bên dưới.`}
+                  tone="success"
+                  text={`Khách đã thanh toán ${money(j.total_amount)} qua ${PAYMENT_LABEL[j.payment_method ?? ''] ?? 'app'}.${
+                    j.earning ? ` Đã cộng ${money(j.earning.net_amount)} vào ví của bạn.` : ''
+                  }`}
                 />
-              ) : j.customer_chose_cash ? (
-                <Banner tone="warning" icon="cash-clock" text={`Khách chọn trả tiền mặt ${money(j.amount_to_collect)}. Thu đủ rồi bấm xác nhận bên dưới.`} />
+              ) : pendingPayment ? (
+                <Banner tone="info" icon="cellphone-check" text={`Khách đang thanh toán ${money(j.amount_due ?? j.total_amount)} qua ${PAYMENT_LABEL[pendingPayment.method] ?? 'app'}.`} />
               ) : (
-                <Banner tone="warning" icon="cash-clock" text={`Chờ thanh toán ${money(j.amount_to_collect)}. Khách trả tiền mặt thì thu đủ rồi bấm xác nhận.`} />
+                <Banner
+                  tone="warning"
+                  icon="cellphone-arrow-down"
+                  text={`Chờ khách thanh toán ${money(j.amount_due ?? j.total_amount)} qua app (MoMo / VNPay). Khách trả xong, hệ thống tự xác nhận và cộng ${money(
+                    Math.round((j.amount_due ?? j.total_amount) * (1 - rate)),
+                  )} vào ví của bạn, bạn không cần bấm gì.`}
+                />
               )}
-              {j.can_confirm_cash ? (
-                <Button title={`Đã thu tiền mặt ${money(j.amount_to_collect)}`} icon="cash-check" variant="success" onPress={confirmCash} size="lg" />
+              {j.awaiting_payment && !pendingPayment ? (
+                <Text style={styles.small}>Thợ Nhanh không nhận tiền mặt. Nếu khách hỏi, hướng dẫn khách mở app Thợ Nhanh, vào đơn {orderCode(j)} và chọn Thanh toán.</Text>
               ) : null}
             </Card>
           ) : null}
@@ -658,7 +648,7 @@ export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobD
         onClose={() => setMapOpen(false)}
         markers={markers}
         address={j.address_text}
-        distance={km !== null && km !== undefined ? `${fmtKm(km)}, khoảng ${etaMinutes(km)} phút` : null}
+        distance={km !== null && km !== undefined ? `${fmtKm(km)} đường chim bay, khoảng ${etaMinutes(km)} phút` : null}
         onNavigate={() => void navigate()}
       />
 

@@ -12,6 +12,7 @@ import { StateView } from '../../components/StateView';
 import { useRootNav, type TabParamList } from '../../navigation/types';
 import { colors, radius } from '../../theme';
 import { fmtWhen, money, orderCode, PAYMENT_LABEL, serviceIcon } from '../../utils/format';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 
 type Group = 'active' | 'completed' | 'cancelled';
 
@@ -33,6 +34,7 @@ export default function JobsScreen() {
     getNextPageParam: (last) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined),
     refetchInterval: focused && group === 'active' ? 10000 : false,
   });
+  useRefetchOnFocus(q.refetch);
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
   const activeCount = group === 'active' ? q.data?.pages[0]?.total : undefined;
 
@@ -126,7 +128,7 @@ export function JobCard({ job, onPress }: { job: JobItem; onPress: () => void })
             <View style={styles.pay}>
               <Icon name={job.paid ? 'check' : 'cash-clock'} size={12} color={job.paid ? colors.success : colors.warning} />
               <Text style={[styles.payText, { color: job.paid ? colors.success : colors.warning }]}>
-                {job.paid ? (PAYMENT_LABEL[job.payment_method ?? 'cash'] ?? 'Đã trả') : 'Chờ thanh toán'}
+                {job.paid ? (PAYMENT_LABEL[job.payment_method ?? ''] ?? 'Đã trả') : 'Chờ thanh toán'}
               </Text>
             </View>
           ) : null}

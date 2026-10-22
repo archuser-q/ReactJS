@@ -29,7 +29,6 @@ export type RootStackParamList = {
   Performance: undefined;
   BankAccount: undefined;
   Withdraw: undefined;
-  Topup: undefined;
   WalletHistory: undefined;
   EarningHistory: undefined;
   Help: undefined;
