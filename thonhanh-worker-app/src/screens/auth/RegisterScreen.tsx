@@ -11,6 +11,8 @@ import { useOverlay } from '../../components/Overlay';
 import { Header, Screen } from '../../components/Screen';
 import type { ScreenProps } from '../../navigation/types';
 import { colors, radius } from '../../theme';
+import { PasswordRules } from '../../components/PasswordRules';
+import { passwordProblem } from '../../utils/password';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,7 +29,8 @@ export default function RegisterScreen({ navigation }: ScreenProps<'Register'>) 
     const e: typeof errors = {};
     if (form.full_name.trim().length < 2) e.full_name = 'Nhập họ tên đầy đủ (như trên CCCD)';
     if (!EMAIL_RE.test(form.email.trim())) e.email = 'Email không hợp lệ';
-    if (form.password.length < 8) e.password = 'Mật khẩu tối thiểu 8 ký tự';
+    const pwErr = passwordProblem(form.password);
+    if (pwErr) e.password = pwErr;
     if (form.confirm !== form.password) e.confirm = 'Mật khẩu nhập lại không khớp';
     setErrors(e);
     if (Object.keys(e).length) return;
@@ -73,7 +76,8 @@ export default function RegisterScreen({ navigation }: ScreenProps<'Register'>) 
           error={errors.email}
           hint="Dùng để đăng nhập và nhận mã khi quên mật khẩu"
         />
-        <TextField label="Mật khẩu" icon="lock-outline" placeholder="Ít nhất 8 ký tự" value={form.password} onChangeText={set('password')} secure error={errors.password} autoComplete="new-password" />
+        <TextField label="Mật khẩu" icon="lock-outline" placeholder="Ít nhất 8 ký tự, có chữ và số" value={form.password} onChangeText={set('password')} secure error={errors.password} autoComplete="new-password" />
+        <PasswordRules value={form.password} />
         <TextField label="Nhập lại mật khẩu" icon="lock-check-outline" placeholder="Nhập lại mật khẩu" value={form.confirm} onChangeText={set('confirm')} secure error={errors.confirm} onSubmitEditing={submit} />
 
         <Pressable onPress={() => setAgree((v) => !v)} style={styles.agree} hitSlop={6}>

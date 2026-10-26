@@ -6,16 +6,17 @@ import { api, errMsg, qk } from '../../api';
 import { useAuth, useWorkerMe } from '../../auth/AuthContext';
 import { Avatar } from '../../components/Bits';
 import { Button } from '../../components/Button';
-import { Chip, TextField } from '../../components/Form';
+import { TextField } from '../../components/Form';
 import { Icon } from '../../components/Icon';
 import { useOverlay } from '../../components/Overlay';
 import { useUploadImages } from '../../components/Photos';
 import { Header, Screen } from '../../components/Screen';
 import { StateView } from '../../components/StateView';
 import type { ScreenProps } from '../../navigation/types';
-import { colors } from '../../theme';
+import { colors, radius } from '../../theme';
 
-const EXP = [0, 1, 2, 3, 5, 8, 10, 15, 20];
+const MAX_YEARS = 50;
+const yearsText = (y: number) => (y === 0 ? 'Dưới 1 năm' : `${y} năm`);
 
 export default function PersonalInfoScreen({ navigation }: ScreenProps<'PersonalInfo'>) {
   const me = useWorkerMe();
@@ -110,13 +111,29 @@ export default function PersonalInfoScreen({ navigation }: ScreenProps<'Personal
           hint="Khách gọi số này khi bạn đang làm đơn của họ"
         />
         <TextField label="Email đăng nhập" icon="email-outline" value={me.data.user.email ?? '(đăng nhập bằng mạng xã hội)'} editable={false} />
+        {/* 1 con số chung cho mọi nhóm dịch vụ thợ nhận làm (máy chủ tự áp cho từng nhóm khi ghép đơn) */}
         <View>
-          <Text style={styles.label}>Số năm kinh nghiệm</Text>
-          <View style={styles.chips}>
-            {EXP.map((y) => (
-              <Chip key={y} label={y === 0 ? 'Dưới 1 năm' : `${y} năm`} selected={form.experience_years === y} onPress={() => setForm((f) => ({ ...f, experience_years: y }))} />
-            ))}
+          <Text style={styles.label}>Số năm kinh nghiệm làm thợ điện</Text>
+          <View style={styles.expRow}>
+            <Pressable
+              onPress={() => setForm((f) => ({ ...f, experience_years: Math.max(0, f.experience_years - 1) }))}
+              style={styles.stepBtn}
+              hitSlop={6}
+              accessibilityLabel="Bớt 1 năm"
+            >
+              <Icon name="minus" size={22} color={form.experience_years > 0 ? colors.primary : colors.faint} />
+            </Pressable>
+            <Text style={styles.expValue}>{yearsText(form.experience_years)}</Text>
+            <Pressable
+              onPress={() => setForm((f) => ({ ...f, experience_years: Math.min(MAX_YEARS, f.experience_years + 1) }))}
+              style={styles.stepBtn}
+              hitSlop={6}
+              accessibilityLabel="Thêm 1 năm"
+            >
+              <Icon name="plus" size={22} color={form.experience_years < MAX_YEARS ? colors.primary : colors.faint} />
+            </Pressable>
           </View>
+          <Text style={styles.hint}>Áp dụng cho mọi nhóm dịch vụ bạn nhận làm. Kinh nghiệm càng lâu càng được ưu tiên khi ghép đơn.</Text>
         </View>
         <TextField
           label="Giới thiệu bản thân"
@@ -139,5 +156,15 @@ const styles = StyleSheet.create({
   camera: { position: 'absolute', top: 58, left: '55%', width: 30, height: 30, borderRadius: 15, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
   avatarHint: { fontSize: 12, color: colors.faint },
   label: { fontSize: 13, fontWeight: '700', color: colors.body, marginBottom: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  expRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.lg,
+    padding: 6,
+  },
+  stepBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
+  expValue: { fontSize: 18, fontWeight: '800', color: colors.primary },
+  hint: { fontSize: 12, color: colors.faint, marginTop: 6, lineHeight: 17 },
 });

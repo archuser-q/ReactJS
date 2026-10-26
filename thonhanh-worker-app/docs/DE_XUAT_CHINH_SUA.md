@@ -56,7 +56,6 @@ Lý do: Hungarian O(n³) chạy theo **từng lượt lô** (vài chục đơn c
 - J. Munkres (1957), *Algorithms for the Assignment and Transportation Problems*, Journal of SIAM 5(1).
 - MapLibre GL JS — https://maplibre.org ; OpenFreeMap — https://openfreemap.org ; Leaflet — https://leafletjs.com ; OpenStreetMap — https://www.openstreetmap.org
 - Expo / React Native — https://docs.expo.dev ; Express — https://expressjs.com ; Socket.IO — https://socket.io ; PostGIS — https://postgis.net
-- Grab, "New commission deduction for cashless bookings" (mô hình trừ hoa hồng vào ví đối tác): https://www.grab.com/my/blog/driver/car/new-commission-deduction-for-cashless-bookings
 - Urban Company, "12-point program to improve partner earnings and livelihood" (chỉ số, quyền lợi đối tác): https://www.urbancompany.com/blog/urban-company-announces-12-point-program-to-improve-partner-earnings-and-livelihood
 
 ---
@@ -69,12 +68,13 @@ Lý do: Hungarian O(n³) chạy theo **từng lượt lô** (vài chục đơn c
 - ➕ "Duyệt/từ chối báo giá phát sinh của thợ", "Xem ảnh trước/sau khi sửa".
 
 ### 5.2. App Thợ/Kỹ thuật viên
-- ✏️ "Đăng ký & xác minh hồ sơ (CCCD, chứng chỉ nghề — admin duyệt)" → "Đăng ký & xác minh hồ sơ: **CCCD 2 mặt + ảnh chân dung (bắt buộc), chứng chỉ nghề điện (khuyến khích)**; admin duyệt **từng giấy tờ**, bị từ chối thì thấy lý do và tải lại."
+- ✏️ "Đăng ký & xác minh hồ sơ (CCCD, chứng chỉ nghề — admin duyệt)" → "Đăng ký & xác minh hồ sơ: **CCCD 2 mặt + ảnh chân dung (bắt buộc), chứng chỉ nghề điện (khuyến khích)**; admin duyệt **từng giấy tờ**, bị từ chối thì thấy lý do và tải lại. Chưa được duyệt vẫn vào app, chỉ chưa bật nhận đơn được."
 - ✏️ "Nhận thông báo đơn phù hợp" → "**Nhận lời mời đơn** (đếm ngược, khoảng cách, thu nhập thực nhận dự kiến), chấp nhận/bỏ qua."
 - ✏️ "Cập nhật trạng thái đơn: đang di chuyển → đang sửa → hoàn thành" → "**đang di chuyển → đã đến nơi → đang sửa → hoàn thành**" (bước "đã đến nơi" để khách biết thợ đã tới cửa).
 - ✏️ "Chụp ảnh trước/sau": ghi rõ "ảnh sau là **bắt buộc** để hoàn thành đơn".
 - ➕ "Hủy đơn đã nhận có lý do — nếu chưa đến nơi, hệ thống tự tìm thợ khác cho khách."
-- ➕ "Khu vực & bán kính nhận việc", "Xác nhận đã thu tiền mặt", "Ví thợ: hoa hồng, nạp tiền, rút tiền (mô phỏng)", "Hiệu suất 30 ngày: tỷ lệ nhận, tỷ lệ hoàn thành, đánh giá".
+- ➕ "Khu vực & bán kính nhận việc", "Ví thợ: khách trả qua MoMo/VNPay thì thực nhận vào ví, rút về ngân hàng (mô phỏng)", "Hiệu suất 30 ngày: tỷ lệ nhận, tỷ lệ hoàn thành, đánh giá".
+- ✏️ Nếu đề cương có "thanh toán tiền mặt" thì **bỏ**: hệ thống chỉ nhận thanh toán online (MoMo/VNPay sandbox) để đối soát được mọi khoản tiền; khách còn đơn chưa trả thì chưa đặt được đơn mới (lý do ở THIET_KE_APP_THO.md, mục 8).
 - ➕ "**Kiểm tra an toàn điện bắt buộc** trước khi bắt đầu sửa (ngắt nguồn, thử điện, đồ bảo hộ, báo khách), hệ thống lưu thời điểm xác nhận" — điểm riêng của nghề điện, nên đưa vào mục tiêu App Thợ.
 - ➕ "Hạng thợ (Đồng/Bạc/Vàng/Kim cương)", "Báo giá nhanh theo bảng giá vật tư tham khảo".
 - ✏️ Nếu đề cương có "lịch làm việc / khung giờ làm việc của thợ" thì **bỏ**: thợ chỉ bật/tắt nhận đơn; đơn hẹn trước ghi rõ giờ hẹn trong lời mời để thợ tự quyết, hệ thống chặn trùng lịch (lý do ở THIET_KE_APP_THO.md, mục 11c).

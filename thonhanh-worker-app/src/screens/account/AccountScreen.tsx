@@ -2,6 +2,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { Text } from '../../components/Text';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import { api, qk } from '../../api';
 import { useAuth, useWorkerMe } from '../../auth/AuthContext';
 import { Avatar } from '../../components/Bits';
@@ -10,9 +11,13 @@ import { MenuItem, MenuSection } from '../../components/Form';
 import { Icon } from '../../components/Icon';
 import { useOverlay } from '../../components/Overlay';
 import { apiUrl } from '../../config/env';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { useRootNav } from '../../navigation/types';
 import { colors, radius } from '../../theme';
 import { fmtRating, money } from '../../utils/format';
+
+const certs = (d: { documents: { doc_type: string; status: string }[] } | undefined) =>
+  d?.documents.filter((x) => x.doc_type === 'certificate' && x.status === 'approved').length ?? 0;
 
 export default function AccountScreen() {
   const navigation = useRootNav();
@@ -22,9 +27,18 @@ export default function AccountScreen() {
   const me = useWorkerMe();
   const wallet = useQuery({ queryKey: qk.wallet, queryFn: api.wallet });
   const d = me.data;
+  useRefetchOnFocus(me.refetch, wallet.refetch);
+  const state = d?.profile.review_state;
+  const docsSub =
+    state === 'approved'
+      ? `Đã xác minh CCCD ✓${certs(d) ? ` · ${certs(d)} chứng chỉ` : ''}`
+      : state === 'pending'
+        ? 'Đang chờ quản trị viên duyệt'
+        : state === 'rejected'
+          ? 'Chưa được duyệt, cần cập nhật giấy tờ'
+          : 'Chưa nộp, cần có để bật nhận đơn';
 
   const trust = Math.round((d?.profile.trust_score ?? 0) * 100);
-  const certs = d?.documents.filter((x) => x.doc_type === 'certificate' && x.status === 'approved').length ?? 0;
 
   const confirmLogout = async () => {
     const ok = await ui.confirm({ title: 'Đăng xuất?', message: 'App sẽ tắt nhận đơn trước khi đăng xuất.', confirmText: 'Đăng xuất', tone: 'danger' });
@@ -87,7 +101,12 @@ export default function AccountScreen() {
 
         <View style={{ paddingHorizontal: 16 }}>
           <MenuSection title="Hồ sơ nghề nghiệp">
-            <MenuItem icon="lightning-bolt-outline" label="Nhóm dịch vụ nhận làm" sub={d ? (d.skills.length ? d.skills.map((s) => `${s.category_name} (${s.years} năm)`).slice(0, 3).join(', ') + (d.skills.length > 3 ? '...' : '') : 'Chưa chọn') : ''} onPress={() => navigation.navigate('Skills')} />
+            <MenuItem
+              icon="lightning-bolt-outline"
+              label="Nhóm dịch vụ nhận làm"
+              sub={d ? (d.skills.length ? d.skills.map((s) => s.category_name).slice(0, 3).join(', ') + (d.skills.length > 3 ? '...' : '') : 'Chưa chọn') : ''}
+              onPress={() => navigation.navigate('Skills')}
+            />
             <MenuItem icon="map-marker-radius-outline" label="Khu vực nhận việc" sub={d ? `Bán kính ${String(d.profile.service_radius_km).replace('.', ',')} km quanh vị trí hiện tại` : ''} onPress={() => navigation.navigate('ServiceArea')} last />
           </MenuSection>
 
@@ -95,9 +114,9 @@ export default function AccountScreen() {
             <MenuItem
               icon="card-account-details-outline"
               label="Giấy tờ xác minh"
-              sub={d?.profile.verification_status === 'approved' ? `Đã xác minh CCCD ✓${certs ? ` · ${certs} chứng chỉ` : ''}` : 'Chờ duyệt'}
+              sub={d ? docsSub : ''}
               onPress={() => navigation.navigate('Documents')}
-              iconColor={colors.success}
+              iconColor={state === 'approved' ? colors.success : state === 'rejected' ? colors.danger : colors.warning}
               last
             />
           </MenuSection>
@@ -128,7 +147,7 @@ export default function AccountScreen() {
           <MenuSection>
             <MenuItem icon="logout" label="Đăng xuất" danger onPress={confirmLogout} last />
           </MenuSection>
-          <Text style={styles.version}>Thợ Nhanh Đối Tác, phiên bản 2.0.0</Text>
+          <Text style={styles.version}>Thợ Nhanh Đối Tác, phiên bản {Constants.expoConfig?.version ?? '2.1.0'}</Text>
         </View>
       </ScrollView>
     </View>

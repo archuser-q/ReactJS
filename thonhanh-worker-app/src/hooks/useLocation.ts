@@ -61,7 +61,7 @@ export async function getCoords(): Promise<Coords> {
   if (!perm.granted) throw new LocationError('denied', 'Bạn chưa cho phép app dùng vị trí');
   try {
     const pos = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 12_000)),
     ]);
     return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
@@ -112,7 +112,7 @@ export function useLocationTracker(active: boolean) {
       if (!perm?.granted || stopped) return;
       try {
         sub = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.Balanced, timeInterval: 10_000, distanceInterval: 25 },
+          { accuracy: Location.Accuracy.High, timeInterval: 10_000, distanceInterval: 25 },
           (pos) => void send({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
         );
         if (stopped) sub.remove();

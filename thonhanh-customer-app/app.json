@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Thợ Nhanh",
+    "slug": "tho-nhanh-customer",
+    "scheme": "thonhanhcustomer",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "vn.thonhanh.customer",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Thợ Nhanh dùng vị trí để lưu địa chỉ và tìm thợ điện gần bạn.",
+        "NSCameraUsageDescription": "Chụp ảnh chỗ hỏng để thợ biết trước cần mang gì, và gửi ảnh trong tin nhắn.",
+        "NSPhotoLibraryUsageDescription": "Chọn ảnh chỗ hỏng, ảnh đại diện hoặc ảnh gửi cho thợ."
+      }
+    },
+    "android": {
+      "package": "vn.thonhanh.customer",
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA"]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        { "locationWhenInUsePermission": "Thợ Nhanh dùng vị trí để lưu địa chỉ và tìm thợ điện gần bạn." }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Chọn ảnh chỗ hỏng, ảnh đại diện hoặc ảnh gửi cho thợ.",
+          "cameraPermission": "Chụp ảnh chỗ hỏng để thợ biết trước cần mang gì, và gửi ảnh trong tin nhắn."
+        }
+      ],
+      ["expo-notifications", { "color": "#059669" }],
+      "expo-secure-store",
+      "expo-web-browser"
+    ]
+  }
+}

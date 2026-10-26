@@ -5,6 +5,8 @@
  *   3. Hôm nay được bao nhiêu, lịch hẹn ra sao?
  * Không có bản đồ: bản đồ chỉ xuất hiện khi có đơn cụ thể (lời mời, chi tiết việc).
  * Ba trạng thái loại trừ nhau: Đang nghỉ · Đang nhận đơn (chờ lời mời) · Đang có việc.
+ * Thợ chưa được duyệt vẫn vào được Trang chủ: thẻ "hồ sơ" ở trên cùng nói rõ cần làm gì, bấm bật nhận đơn
+ * thì báo nộp giấy tờ (chưa gửi) hoặc chờ quản trị viên duyệt (đã gửi).
  */
 import { useState } from 'react';
 import { Linking, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -21,7 +23,9 @@ import { useOverlay } from '../../components/Overlay';
 import { StateView } from '../../components/StateView';
 import { Text } from '../../components/Text';
 import { Toggle } from '../../components/Toggle';
+import { Button } from '../../components/Button';
 import { getCoords, LocationError } from '../../hooks/useLocation';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { useRootNav } from '../../navigation/types';
 import { colors, op, palette, radius, shadow, tabular } from '../../theme';
 import { fmtRating, fmtTime, fmtWhen, fmtWhenInline, JOB_STEPS, money, orderCode, serviceIcon, stepIndex } from '../../utils/format';
@@ -41,13 +45,32 @@ export default function HomeScreen() {
   const home = useQuery({ queryKey: qk.home, queryFn: api.home, refetchInterval: focused ? 8000 : 20000 });
   const [toggling, setToggling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  useRefetchOnFocus(home.refetch);
 
   const d = home.data;
+
+  /** Bấm bật nhận đơn khi chưa đủ điều kiện: nói rõ lý do + đưa tới đúng chỗ cần làm */
+  const explainBlocked = async (h: HomeData) => {
+    const msg = h.blockers[0] ?? 'Chưa đủ điều kiện nhận đơn';
+    if (h.review_state === 'not_submitted') {
+      if (await ui.confirm({ title: 'Chưa nộp giấy tờ xác minh', message: msg, confirmText: 'Nộp giấy tờ', cancelText: 'Để sau', tone: 'warning' })) {
+        navigation.navigate('Onboarding');
+      }
+    } else if (h.review_state === 'pending') {
+      await ui.alert('Đang chờ duyệt hồ sơ', msg, 'info');
+    } else if (h.review_state === 'rejected') {
+      if (await ui.confirm({ title: 'Hồ sơ chưa được duyệt', message: msg, confirmText: 'Cập nhật giấy tờ', cancelText: 'Để sau', tone: 'warning' })) {
+        navigation.navigate('Documents');
+      }
+    } else if (await ui.confirm({ title: 'Chưa thể nhận đơn', message: h.blockers.join('\n'), confirmText: 'Cập nhật hồ sơ', cancelText: 'Để sau', tone: 'warning' })) {
+      navigation.navigate(/điện thoại/.test(msg) ? 'PersonalInfo' : 'Skills');
+    }
+  };
 
   const toggle = async (next: boolean) => {
     if (!d || toggling) return;
     if (next && !d.can_go_online) {
-      void ui.alert('Chưa thể nhận đơn', d.blockers.join('\n'), 'warning');
+      void explainBlocked(d);
       return;
     }
     setToggling(true);
@@ -151,6 +174,13 @@ export default function HomeScreen() {
             </View>
           ) : (
             <>
+              {d.review_state !== 'approved' ? (
+                <ReviewCard
+                  d={d}
+                  onPress={() => navigation.navigate(d.review_state === 'rejected' ? 'Documents' : 'Onboarding')}
+                />
+              ) : null}
+
               {job ? (
                 <ActiveJobCard
                   job={job}
@@ -163,16 +193,8 @@ export default function HomeScreen() {
                 <StatusCard d={d} online={online} toggling={toggling} onToggle={(v) => void toggle(v)} />
               )}
 
-              {d.wallet_restricted ? (
-                <Banner
-                  tone="danger"
-                  text={`Ví đang âm ${money(d.wallet_balance)} do hoa hồng đơn tiền mặt. Nạp tiền để nhận đơn tiếp.`}
-                  action="Nạp tiền"
-                  onPress={() => navigation.navigate('Topup')}
-                />
-              ) : !d.can_go_online && !job ? (
-                <Banner tone="warning" text={d.blockers.join('. ')} />
-              ) : null}
+              {/* Đã duyệt mà còn thiếu (SĐT, nhóm dịch vụ): nhắc ngay dưới công tắc */}
+              {d.review_state === 'approved' && !d.can_go_online && !job ? <Banner tone="warning" text={d.blockers.join('. ')} /> : null}
               {online && !job && !d.location_fresh ? (
                 <Banner tone="warning" icon="map-marker-alert-outline" text="Chưa cập nhật được vị trí. Giữ app mở và bật GPS để được ghép đơn gần bạn." />
               ) : null}
@@ -233,6 +255,38 @@ export default function HomeScreen() {
 }
 
 // ---------------------------------------------------------------------------
+
+const REVIEW: Record<Exclude<HomeData['review_state'], 'approved'>, { icon: IconName; color: string; bg: string; title: string; action: string }> = {
+  not_submitted: { icon: 'card-account-details-outline', color: colors.primary, bg: colors.primaryLight, title: 'Nộp giấy tờ để bắt đầu nhận việc', action: 'Nộp giấy tờ' },
+  pending: { icon: 'clock-outline', color: colors.warning, bg: colors.warningBg, title: 'Hồ sơ đang chờ duyệt', action: 'Xem hồ sơ' },
+  rejected: { icon: 'alert-circle-outline', color: colors.danger, bg: colors.dangerBg, title: 'Hồ sơ chưa được duyệt', action: 'Cập nhật giấy tờ' },
+};
+
+/** Thẻ trạng thái hồ sơ cho thợ chưa được duyệt (chưa gửi / chờ duyệt / bị từ chối hoặc bỏ duyệt) */
+function ReviewCard({ d, onPress }: { d: HomeData; onPress: () => void }) {
+  const r = REVIEW[d.review_state as keyof typeof REVIEW];
+  if (!r) return null;
+  const sub =
+    d.review_state === 'not_submitted'
+      ? 'Tải ảnh CCCD 2 mặt và ảnh chân dung, chọn nhóm dịch vụ rồi gửi để quản trị viên duyệt. Được duyệt mới bật nhận đơn được.'
+      : d.review_state === 'pending'
+        ? 'Quản trị viên đang kiểm tra giấy tờ của bạn, thường trong 24 giờ làm việc. Có kết quả app sẽ báo ngay.'
+        : `${d.verification_note ? `Lý do: ${d.verification_note}. ` : ''}Cập nhật giấy tờ rồi gửi lại để được duyệt.`;
+  return (
+    <View style={[styles.card, styles.review, { borderColor: op(r.color, 0.35) }]}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={[styles.reviewIcon, { backgroundColor: r.bg }]}>
+          {d.review_state === 'pending' ? <PulseDot color={r.color} /> : <Icon name={r.icon} size={22} color={r.color} />}
+        </View>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={[styles.reviewTitle, { color: r.color }]}>{r.title}</Text>
+          <Text style={styles.reviewSub}>{sub}</Text>
+        </View>
+      </View>
+      <Button title={r.action} variant={d.review_state === 'pending' ? 'secondary' : 'primary'} size="sm" onPress={onPress} />
+    </View>
+  );
+}
 
 function StatusCard({ d, online, toggling, onToggle }: { d: HomeData; online: boolean; toggling: boolean; onToggle: (next: boolean) => void }) {
   const radiusKm = String(d.service_radius_km).replace('.', ',');
@@ -413,6 +467,10 @@ const styles = StyleSheet.create({
   section: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 8 },
 
   status: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 18, ...shadow.md },
+  review: { gap: 12, borderWidth: 1, ...shadow.md },
+  reviewIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  reviewTitle: { fontSize: 16, fontWeight: '800' },
+  reviewSub: { fontSize: 13, color: colors.body, lineHeight: 19 },
   statusOn: { borderWidth: 1.5, borderColor: op(palette.live, 0.55) },
   statusIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   statusTitle: { fontSize: 18, fontWeight: '800', color: colors.text },

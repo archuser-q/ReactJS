@@ -10,6 +10,8 @@ import { useOverlay } from '../../components/Overlay';
 import { Header, Screen } from '../../components/Screen';
 import type { ScreenProps } from '../../navigation/types';
 import { colors } from '../../theme';
+import { PasswordRules } from '../../components/PasswordRules';
+import { passwordProblem } from '../../utils/password';
 
 export default function ForgotPasswordScreen({ navigation, route }: ScreenProps<'ForgotPassword'>) {
   const ui = useOverlay();
@@ -41,7 +43,8 @@ export default function ForgotPasswordScreen({ navigation, route }: ScreenProps<
 
   const reset = async () => {
     if (!/^\d{6}$/.test(code)) return void ui.alert('Mã chưa đúng', 'Mã xác nhận gồm 6 chữ số.', 'warning');
-    if (pw.length < 8) return void ui.alert('Mật khẩu quá ngắn', 'Mật khẩu mới tối thiểu 8 ký tự.', 'warning');
+    const pwErr = passwordProblem(pw);
+    if (pwErr) return void ui.alert('Mật khẩu mới chưa đạt', pwErr, 'warning');
     setBusy(true);
     try {
       await api.resetPassword(email, code, pw);
@@ -72,7 +75,8 @@ export default function ForgotPasswordScreen({ navigation, route }: ScreenProps<
             {info ? <Banner text={info} tone="info" /> : null}
             {debugCode ? <Banner tone="warning" icon="bug-outline" text={`Môi trường demo (chưa cấu hình email): mã của bạn là ${debugCode}`} /> : null}
             <TextField label="Mã xác nhận" icon="numeric" value={code} onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" placeholder="6 chữ số" maxLength={6} />
-            <TextField label="Mật khẩu mới" icon="lock-outline" value={pw} onChangeText={setPw} secure placeholder="Ít nhất 8 ký tự" />
+            <TextField label="Mật khẩu mới" icon="lock-outline" value={pw} onChangeText={setPw} secure placeholder="Ít nhất 8 ký tự, có chữ và số" autoComplete="new-password" />
+            <PasswordRules value={pw} />
             <Button title="Đặt lại mật khẩu" onPress={reset} loading={busy} size="lg" />
             <Button title="Gửi lại mã" variant="ghost" onPress={send} disabled={busy} />
           </>

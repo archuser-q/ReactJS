@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -13,7 +13,8 @@ import { useOverlay } from '../components/Overlay';
 import { useLocationTracker } from '../hooks/useLocation';
 import { usePushRegistration } from '../hooks/usePushRegistration';
 import { colors, fonts } from '../theme';
-import type { RootStackParamList, TabParamList } from './types';
+import { isOnboardingSkipped } from '../utils/onboarding';
+import { navigationRef, type RootStackParamList, type TabParamList } from './types';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -26,7 +27,7 @@ import JobsScreen from '../screens/jobs/JobsScreen';
 import JobDetailScreen from '../screens/jobs/JobDetailScreen';
 import ChatScreen from '../screens/jobs/ChatScreen';
 import EarningsScreen from '../screens/earnings/EarningsScreen';
-import { BankAccountScreen, EarningHistoryScreen, TopupScreen, WalletHistoryScreen, WithdrawScreen } from '../screens/earnings/WalletScreens';
+import { BankAccountScreen, EarningHistoryScreen, WalletHistoryScreen, WithdrawScreen } from '../screens/earnings/WalletScreens';
 import AccountScreen from '../screens/account/AccountScreen';
 import PersonalInfoScreen from '../screens/account/PersonalInfoScreen';
 import SkillsScreen from '../screens/account/SkillsScreen';
@@ -85,7 +86,7 @@ function MainTabs() {
   );
 }
 
-/** Chạy nền khi thợ đã được duyệt: gửi vị trí, đăng ký push */
+/** Chạy nền khi đã đăng nhập: gửi vị trí (chỉ khi đang nhận đơn / đang đi làm), đăng ký push (để nhận cả kết quả duyệt hồ sơ) */
 function WorkerRuntime() {
   const home = useQuery({ queryKey: qk.home, queryFn: api.home, refetchInterval: 15000 });
   const d = home.data;
@@ -108,30 +109,71 @@ function Splash({ text }: { text?: string }) {
   );
 }
 
+/** Màn "Hoàn thiện hồ sơ" có tự mở khi vào app không: chưa gửi hồ sơ và chưa bấm bỏ qua trên máy này */
+function useStartOnOnboarding(userId: number | undefined, notSubmitted: boolean | undefined) {
+  const [skip, setSkip] = useState<{ id: number; skipped: boolean } | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    void isOnboardingSkipped(userId).then((skipped) => alive && setSkip({ id: userId, skipped }));
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+  if (!userId || notSubmitted === undefined || skip?.id !== userId) return null; // đang đọc
+  return notSubmitted && !skip.skipped;
+}
+
 export default function RootNavigator() {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const me = useWorkerMe();
   const ui = useOverlay();
   const verification = me.data?.profile.verification_status;
   const approved = verification === 'approved';
+  const note = me.data?.profile.verification_note;
   const prev = useRef<string | undefined>(undefined);
+  const startOnboarding = useStartOnOnboarding(
+    status === 'authed' ? user?.id : undefined,
+    me.data ? me.data.profile.review_state === 'not_submitted' : undefined,
+  );
 
+  // Kết quả duyệt đến lúc đang dùng app (realtime / hỏi định kỳ): báo ngay, KHÔNG đổi bộ màn hình
+  // (bản trước đổi cả stack khi trạng thái duyệt đổi -> đang ở màn Giấy tờ bấm ← bị đơ).
   useEffect(() => {
-    if (prev.current && prev.current !== 'approved' && verification === 'approved') {
-      void ui.alert('Hồ sơ đã được duyệt 🎉', 'Chào mừng bạn trở thành đối tác Thợ Nhanh! Bật nhận đơn ở Trang chủ để bắt đầu nhận việc.', 'success');
-    }
+    const before = prev.current;
     prev.current = verification;
-  }, [verification, ui]);
+    if (!before || before === verification) return;
+    if (verification === 'approved') {
+      void ui.alert('Hồ sơ đã được duyệt 🎉', 'Chào mừng bạn trở thành đối tác Thợ Nhanh! Bật nhận đơn ở Trang chủ để bắt đầu nhận việc.', 'success');
+    } else if (verification === 'rejected') {
+      void (async () => {
+        const go = await ui.confirm({
+          title: before === 'approved' ? 'Hồ sơ bị tạm ngừng duyệt' : 'Hồ sơ chưa được duyệt',
+          message: `${note ? `Lý do: ${note}\n\n` : ''}Bạn vẫn dùng app bình thường nhưng chưa bật nhận đơn được. Cập nhật giấy tờ rồi gửi lại để được duyệt.`,
+          confirmText: 'Xem giấy tờ',
+          cancelText: 'Để sau',
+          tone: 'warning',
+        });
+        if (go && navigationRef.isReady()) navigationRef.navigate('Documents');
+      })();
+    }
+  }, [verification, note, ui]);
 
   if (status === 'booting') return <Splash />;
   if (status === 'authed' && !me.data) {
     return me.isError ? <Splash text="Không tải được hồ sơ, đang thử lại..." /> : <Splash />;
   }
+  if (status === 'authed' && startOnboarding === null) return <Splash />;
 
   return (
     <OfferCenter enabled={status === 'authed' && approved}>
-      {status === 'authed' && approved ? <WorkerRuntime /> : null}
-      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      {status === 'authed' ? <WorkerRuntime /> : null}
+      {/* Đã đăng nhập: 1 bộ màn hình duy nhất cho mọi trạng thái duyệt. Chưa duyệt vẫn dùng app, chỉ không bật nhận đơn được. */}
+      <Stack.Navigator
+        key={status === 'authed' ? `authed-${user?.id}` : 'guest'}
+        initialRouteName={status === 'guest' ? 'Login' : startOnboarding ? 'Onboarding' : 'Main'}
+        screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+      >
         {status === 'guest' ? (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
@@ -139,19 +181,10 @@ export default function RootNavigator() {
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="ServerSettings" component={ServerSettingsScreen} />
           </>
-        ) : !approved ? (
-          <>
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-            <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />
-            <Stack.Screen name="Skills" component={SkillsScreen} />
-            <Stack.Screen name="ServiceArea" component={ServiceAreaScreen} />
-            <Stack.Screen name="Documents" component={DocumentsScreen} />
-            <Stack.Screen name="Notifications" component={NotificationsScreen} />
-            <Stack.Screen name="Help" component={HelpScreen} />
-          </>
         ) : (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="JobDetail" component={JobDetailScreen} />
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
@@ -163,7 +196,6 @@ export default function RootNavigator() {
             <Stack.Screen name="Performance" component={PerformanceScreen} />
             <Stack.Screen name="BankAccount" component={BankAccountScreen} />
             <Stack.Screen name="Withdraw" component={WithdrawScreen} />
-            <Stack.Screen name="Topup" component={TopupScreen} />
             <Stack.Screen name="WalletHistory" component={WalletHistoryScreen} />
             <Stack.Screen name="EarningHistory" component={EarningHistoryScreen} />
             <Stack.Screen name="Help" component={HelpScreen} />

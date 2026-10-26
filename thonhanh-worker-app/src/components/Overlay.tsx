@@ -143,7 +143,7 @@ function Toast({ msg, onDone }: { msg: { text: string; tone: string; id: number 
     Animated.timing(y, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     const t = setTimeout(() => {
       Animated.timing(y, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => onDone());
-    }, 2600);
+    }, Math.min(6000, Math.max(2600, msg.text.length * 55))); // câu dài (VD báo khách đã thanh toán) hiện lâu hơn để kịp đọc
     return () => clearTimeout(t);
   }, [msg, y, onDone]);
   if (!msg) return null;

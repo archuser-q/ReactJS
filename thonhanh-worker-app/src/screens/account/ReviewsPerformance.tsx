@@ -1,6 +1,6 @@
 /** Đánh giá từ khách + Hiệu suất làm việc */
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api, errMsg, qk, type ReviewsPage } from '../../api';
@@ -10,6 +10,7 @@ import { Chip } from '../../components/Form';
 import { Icon, type IconName } from '../../components/Icon';
 import { Header, Screen } from '../../components/Screen';
 import { StateView } from '../../components/StateView';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { useRootNav } from '../../navigation/types';
 import { colors } from '../../theme';
 import { fmtDate, fmtRating, money, orderCode, pct } from '../../utils/format';
@@ -23,6 +24,7 @@ export function ReviewsScreen() {
     initialPageParam: 1,
     getNextPageParam: (last: ReviewsPage) => (last.page * last.pageSize < last.total ? last.page + 1 : undefined),
   });
+  useRefetchOnFocus(q.refetch);
   const first = q.data?.pages[0];
   const summary = first?.summary;
   const items = q.data?.pages.flatMap((p) => p.items) ?? [];
@@ -35,6 +37,7 @@ export function ReviewsScreen() {
         data={items}
         keyExtractor={(r) => String(r.id)}
         contentContainerStyle={{ padding: 16, gap: 10, flexGrow: 1 }}
+        refreshControl={<RefreshControl refreshing={q.isRefetching && !q.isFetchingNextPage} onRefresh={() => void q.refetch()} tintColor={colors.primary} />}
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && void q.fetchNextPage()}
         ListHeaderComponent={
           summary ? (
@@ -100,6 +103,7 @@ export function ReviewsScreen() {
 
 export function PerformanceScreen() {
   const q = useQuery({ queryKey: qk.performance, queryFn: api.performance });
+  useRefetchOnFocus(q.refetch);
   const p = q.data;
   return (
     <Screen>
@@ -107,7 +111,10 @@ export function PerformanceScreen() {
       {!p ? (
         <StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : null} onRetry={() => void q.refetch()} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}>
+        <ScrollView
+          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
+          refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={colors.primary} />}
+        >
           <Card style={{ alignItems: 'center', gap: 6 }}>
             <Text style={styles.big}>{Math.round(p.trust_score * 100)}</Text>
             <Text style={styles.bigLabel}>Điểm tin cậy / 100</Text>

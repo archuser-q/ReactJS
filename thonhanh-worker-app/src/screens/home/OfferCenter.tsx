@@ -250,6 +250,7 @@ function OfferModal({
               {km !== null ? (
                 <View style={styles.dist}>
                   <Text style={styles.distValue}>{fmtKm(km)}</Text>
+                  <Text style={styles.distSub}>đường chim bay</Text>
                   <Text style={styles.distSub}>~{etaMinutes(km)} phút xe máy</Text>
                 </View>
               ) : null}

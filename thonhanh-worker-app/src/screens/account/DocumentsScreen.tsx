@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useQueryClient } from '@tanstack/react-query';
-import { api, errMsg, qk, type DocType, type WorkerDocument } from '../../api';
+import { api, errMsg, qk, type DocType, type ReviewState, type WorkerDocument } from '../../api';
 import { useWorkerMe } from '../../auth/AuthContext';
 import { Banner, Tag } from '../../components/Bits';
 import { Button } from '../../components/Button';
@@ -10,6 +10,7 @@ import { Icon, type IconName } from '../../components/Icon';
 import { mediaUri } from '../../config/env';
 import { useOverlay } from '../../components/Overlay';
 import { useUploadImages } from '../../components/Photos';
+import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { Header, Screen } from '../../components/Screen';
 import { StateView } from '../../components/StateView';
 import type { ScreenProps } from '../../navigation/types';
@@ -25,11 +26,27 @@ const REQUIRED: { type: DocType; label: string; guide: string; icon: IconName }[
 /** Khớp MAX_CERTIFICATES của backend */
 const MAX_CERTS = 5;
 
-const STATUS = {
-  approved: { label: 'Hợp lệ', color: colors.success, icon: 'check-circle' as IconName },
-  pending: { label: 'Chờ duyệt', color: colors.warning, icon: 'clock-outline' as IconName },
-  rejected: { label: 'Bị từ chối', color: colors.danger, icon: 'close-circle' as IconName },
-};
+type TagInfo = { label: string; color: string; icon: IconName };
+const TAG = {
+  valid: { label: 'Hợp lệ', color: colors.success, icon: 'check-circle' },
+  waiting: { label: 'Chờ duyệt', color: colors.warning, icon: 'clock-outline' },
+  rejected: { label: 'Bị từ chối', color: colors.danger, icon: 'close-circle' },
+  uploaded: { label: 'Đã tải lên', color: colors.primary, icon: 'check' },
+} satisfies Record<string, TagInfo>;
+
+/**
+ * Nhãn của 1 ảnh giấy tờ. "Hợp lệ" chỉ hiện khi CẢ HỒ SƠ đang được duyệt: hồ sơ bị từ chối / bỏ duyệt
+ * thì ảnh không còn được coi là hợp lệ nữa (kể cả khi CSDL còn ghi approved), tránh thợ hiểu nhầm.
+ *  - not_submitted / rejected: ảnh chưa (gửi lại) xét  -> "Đã tải lên"
+ *  - pending (đã gửi hồ sơ)                         -> "Chờ duyệt"
+ *  - approved: ảnh đã duyệt -> "Hợp lệ", ảnh cập nhật gửi sau -> "Chờ duyệt"
+ */
+function tagOf(d: WorkerDocument, state: ReviewState): TagInfo {
+  if (d.status === 'rejected') return TAG.rejected;
+  if (state === 'approved') return d.status === 'approved' ? TAG.valid : TAG.waiting;
+  if (state === 'pending') return TAG.waiting;
+  return TAG.uploaded;
+}
 
 export default function DocumentsScreen({ navigation }: ScreenProps<'Documents'>) {
   const me = useWorkerMe();
@@ -38,6 +55,7 @@ export default function DocumentsScreen({ navigation }: ScreenProps<'Documents'>
   const upload = useUploadImages();
   const [busyType, setBusyType] = useState<DocType | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  useRefetchOnFocus(me.refetch);
 
   if (!me.data) {
     return (
@@ -49,19 +67,20 @@ export default function DocumentsScreen({ navigation }: ScreenProps<'Documents'>
   }
   const docs = me.data.documents; // máy chủ trả mới -> cũ
   const ob = me.data.onboarding;
-  const approved = me.data.profile.verification_status === 'approved';
+  const state = me.data.profile.review_state ?? (me.data.profile.verification_status === 'approved' ? 'approved' : 'not_submitted');
+  const approved = state === 'approved';
   const certs = docs.filter((d) => d.doc_type === 'certificate');
   const certSlots = certs.filter((c) => c.status !== 'rejected').length;
 
   /**
    * Mỗi loại giấy tờ bắt buộc:
-   *  - current: bản đã duyệt mới nhất (đang có hiệu lực)
+   *  - current: bản đã duyệt mới nhất (đang có hiệu lực) — chỉ khi hồ sơ đang được duyệt
    *  - update : bản gửi sau bản đã duyệt mà chưa duyệt (chờ duyệt / bị từ chối) -> ảnh cũ vẫn dùng tới khi bản này được duyệt
-   *  - chưa có bản duyệt nào (đang làm hồ sơ): dùng bản mới nhất như trước
+   *  - hồ sơ chưa duyệt (đang làm hồ sơ / bị từ chối / bị bỏ duyệt): dùng bản mới nhất, thay ảnh trực tiếp
    */
   const slot = (t: DocType) => {
     const all = docs.filter((d) => d.doc_type === t);
-    const current = all.find((d) => d.status === 'approved') ?? null;
+    const current = approved ? (all.find((d) => d.status === 'approved') ?? null) : null;
     const latest = all[0] ?? null;
     const update = current && latest && latest.id !== current.id && latest.status !== 'approved' ? latest : null;
     return { current, update, latest };
@@ -106,10 +125,20 @@ export default function DocumentsScreen({ navigation }: ScreenProps<'Documents'>
     }
   };
 
+  const subtitle = {
+    approved: 'Hồ sơ đã được duyệt',
+    pending: 'Đang chờ quản trị viên duyệt',
+    rejected: 'Hồ sơ chưa được duyệt',
+    not_submitted: 'Bắt buộc để được nhận việc',
+  }[state];
+
   return (
     <Screen>
-      <Header title="Giấy tờ xác minh" subtitle={approved ? 'Hồ sơ đã được duyệt' : 'Bắt buộc để được nhận việc'} />
-      <ScrollView contentContainerStyle={styles.body}>
+      <Header title="Giấy tờ xác minh" subtitle={subtitle} />
+      <ScrollView
+        contentContainerStyle={styles.body}
+        refreshControl={<RefreshControl refreshing={me.isRefetching} onRefresh={() => void me.refetch()} tintColor={colors.primary} />}
+      >
         {approved ? (
           <Banner
             icon="shield-sync-outline"
@@ -118,12 +147,19 @@ export default function DocumentsScreen({ navigation }: ScreenProps<'Documents'>
         ) : (
           <Banner icon="shield-lock-outline" text="Giấy tờ chỉ dùng để xác minh danh tính và được bảo mật. Khách hàng không xem được ảnh CCCD của bạn." />
         )}
-        {!approved && ob.reject_reasons.length ? <Banner tone="danger" text={ob.reject_reasons.join('\n')} /> : null}
+        {state === 'rejected' ? (
+          <Banner
+            tone="danger"
+            text={`${ob.reject_reasons.join('\n') || 'Hồ sơ chưa được duyệt.'}\nThay các ảnh chưa đạt rồi bấm "Gửi lại hồ sơ" ở cuối trang.`}
+          />
+        ) : state === 'pending' ? (
+          <Banner tone="warning" icon="clock-outline" text={`Đã gửi hồ sơ lúc ${fmtDateTime(ob.submitted_at)}. Bạn sẽ nhận thông báo khi có kết quả.`} />
+        ) : null}
 
         {REQUIRED.map((r) => {
           const { current, update, latest } = slot(r.type);
           const shown = current ?? latest;
-          const st = shown ? STATUS[shown.status] : null;
+          const st = shown ? tagOf(shown, state) : null;
           return (
             <View key={r.type} style={styles.card}>
               <View style={styles.row}>
@@ -218,7 +254,7 @@ export default function DocumentsScreen({ navigation }: ScreenProps<'Documents'>
                 <Image source={{ uri: mediaUri(c.file_url) }} style={styles.certImg} />
               </Pressable>
               <View style={{ flex: 1 }}>
-                <Tag label={STATUS[c.status].label} color={STATUS[c.status].color} />
+                <Tag label={tagOf(c, state).label} color={tagOf(c, state).color} />
                 {c.reject_reason ? <Text style={styles.reason}>{c.reject_reason}</Text> : null}
                 <Text style={styles.meta}>{fmtDateTime(c.created_at)}</Text>
               </View>
@@ -236,7 +272,9 @@ export default function DocumentsScreen({ navigation }: ScreenProps<'Documents'>
           ) : null}
         </View>
 
-        {!approved && ob.can_submit ? <Button title="Gửi hồ sơ xét duyệt" icon="send-check-outline" size="lg" onPress={submit} loading={submitting} /> : null}
+        {!approved && ob.can_submit ? (
+          <Button title={state === 'rejected' ? 'Gửi lại hồ sơ' : 'Gửi hồ sơ xét duyệt'} icon="send-check-outline" size="lg" onPress={submit} loading={submitting} />
+        ) : null}
       </ScrollView>
     </Screen>
   );
