@@ -125,8 +125,12 @@ export function fmtKm(km: number): string {
 }
 
 /** Ước lượng thời gian tới nơi, đi xe máy trong phố ~20 km/h */
+/**
+ * Ước lượng thời gian thợ đi xe máy tới (giống app thợ): km là ĐƯỜNG CHIM BAY; đường đi thật trong phố
+ * dài hơn khoảng 1,4 lần, xe máy ~20 km/h, cộng 1 phút dắt xe / khởi hành.
+ */
 export function etaMinutes(km: number): number {
-  return Math.max(1, Math.round((km / 20) * 60));
+  return Math.max(2, Math.round(((km * 1.4) / 20) * 60 + 1));
 }
 
 // ── Màu / icon cho dịch vụ (backend chưa có icon) ───────────────────────────

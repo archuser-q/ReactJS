@@ -32,7 +32,7 @@ Kiểm tra trước khi đẩy code: `npm run typecheck && npm run lint && npm r
 | Bản đồ giám sát | đơn đang chạy + vị trí thợ (app thợ gửi lên), tự cập nhật 5 giây, bấm để xem chi tiết |
 | Thợ | **hàng chờ duyệt** theo thời gian gửi hồ sơ; **duyệt / từ chối từng giấy tờ** kèm lý do. Hồ sơ thợ có tab **Đơn hàng** (đang làm + đã xong/huỷ), **Đánh giá** (toàn bộ, lọc theo sao, phân trang), **Ví** (số dư + giao dịch) |
 | Đơn hàng | chi tiết có ảnh trước/sau của thợ, lịch sử lời mời của bộ ghép cặp, vết di chuyển của thợ |
-| Tài chính | 3 tab: **Duyệt rút tiền** (cần backend `WITHDRAWAL_AUTO_APPROVE=false`), **Giao dịch ví thợ** (thu nhập, hoa hồng, nạp, rút, hoàn), **Thanh toán của khách** (tiền mặt / MoMo / VNPay để đối soát; khách không có ví) |
+| Tài chính | 3 tab: **Duyệt rút tiền** (mặc định mọi lệnh rút của thợ chờ duyệt ở đây; backend đặt `WITHDRAWAL_AUTO_APPROVE=true` thì tự duyệt), **Giao dịch ví thợ** (thu nhập, hoa hồng, nạp, rút, hoàn), **Thanh toán của khách** (tiền mặt / MoMo / VNPay để đối soát; khách không có ví) |
 | Khiếu nại | tách **khiếu nại của khách** và **báo cáo sự cố của thợ**; xử lý xong tự báo cho người gửi |
 | Ghép cặp | bộ trọng số + chế độ ghép (Tự động / Tức thời / Theo lô, k), **trạng thái bộ điều phối** và đổi nhanh chế độ |
 

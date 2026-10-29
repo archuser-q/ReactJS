@@ -3,7 +3,8 @@ import type { OrderStatus } from '../api/dashboard'
 /** Màu đơn trên bản đồ theo nhóm trạng thái */
 export const ORDER_GROUP = {
   matching: { label: 'Đang tìm thợ', color: '#d4380d', statuses: ['pending', 'matching'] as OrderStatus[] },
-  assigned: { label: 'Thợ đang đến', color: '#1677ff', statuses: ['accepted', 'on_the_way'] as OrderStatus[] },
+  // gồm cả đơn hẹn giờ đã có thợ nhận nhưng chưa tới giờ đi, nên không ghi "Thợ đang đến"
+  assigned: { label: 'Đã có thợ nhận', color: '#1677ff', statuses: ['accepted', 'on_the_way'] as OrderStatus[] },
   working: { label: 'Đang sửa', color: '#722ed1', statuses: ['arrived', 'in_progress'] as OrderStatus[] },
 } as const
 

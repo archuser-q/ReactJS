@@ -1,7 +1,7 @@
 # Thiết kế App Thợ & thuật toán ghép cặp — THỢ NHANH
 
 > Phần việc của **Thành viên B**: App Thợ (React Native/Expo) + API app thợ trong backend **Node.js (Express) của nhóm** + thuật toán ghép cặp (tức thời, theo lô, tự động hybrid) và bộ điều phối.
-> Mã nguồn backend: gói `backend-node` (`src/routes/worker`, `src/services/worker`, `src/services/matching`, `src/matching`); tài liệu chi tiết: `backend-node/docs/WORKER_API.md`, `MATCHING.md`, `TICH_HOP_THANH_VIEN_B.md`.
+> Mã nguồn backend: gói `backend-node` (`src/routes/worker`, `src/services/worker`, `src/services/matching`, `src/services/trust`, `src/algorithms`); tài liệu chi tiết: `backend-node/docs/WORKER_API.md`, `MATCHING.md`, `TICH_HOP_THANH_VIEN_B.md`; bản đồ toàn bộ code: `backend-node/docs/KIEN_TRUC.md`.
 > Tài liệu này viết để dùng lại cho Chương 3 (phân tích – thiết kế), Chương 4 (xây dựng) và Chương 5 (kiểm thử – thực nghiệm) của báo cáo.
 
 Mục lục
@@ -81,7 +81,6 @@ Nguyên tắc UX rút ra cho thợ (người dùng đang di chuyển, tay bẩn,
 | UC23 | Kiểm tra an toàn điện trước khi sửa | 4 mục bắt buộc; server lưu thời điểm xác nhận (`safety_checked_at`) |
 | UC24 | Báo giá nhanh từ bảng giá vật tư/công tham khảo | Thợ vẫn sửa được nội dung, số tiền; khách phải đồng ý |
 | UC25 | Xem hạng thợ và điều kiện lên hạng | Đồng / Bạc / Vàng / Kim cương — chỉ hiển thị, không ảnh hưởng ghép đơn |
-| UC26 | Chia sẻ địa chỉ đang làm cho người thân | Mở hộp chia sẻ của điện thoại (Zalo, SMS...) |
 
 Use case phía **admin** liên quan tới thợ (web quản trị của thành viên khác dùng API có sẵn + API mới):
 duyệt/từ chối hồ sơ (đề xuất nhóm: duyệt theo từng giấy tờ), cấu hình matching (trọng số, chế độ, bán kính, số thợ mời mỗi đợt k, timeout, cửa sổ lô), xem trạng thái bộ điều phối, duyệt yêu cầu rút tiền.
@@ -194,14 +193,14 @@ Quy trình 3 bước, dùng chung cho cả 2 chế độ:
 
 ### 6.2. Hàm điểm (Weighted Scoring)
 
-5 tiêu chí đúng như web quản trị của nhóm đang hiển thị. Hàm `services/scoring.js` dùng chung cho trang Mô phỏng và bộ điều phối, nên điểm admin thấy = điểm hệ thống dùng thật:
+5 tiêu chí đúng như web quản trị của nhóm đang hiển thị. Hàm `src/algorithms/scoring.js` dùng chung cho trang Mô phỏng và bộ điều phối, nên điểm admin thấy = điểm hệ thống dùng thật:
 
 $$S(o,w) = w_d\,s_d + w_t\,s_t + w_s\,s_s + w_a\,s_a + w_l\,s_l,\qquad \sum w = 1,\; s_\ast \in [0,1] \Rightarrow S \in [0,1]$$
 
 | Tiêu chí | Công thức | Ý nghĩa |
 |---|---|---|
 | Khoảng cách $s_d$ | $\max(0,\,1 - d/R)$ | $d$: khoảng cách PostGIS thợ–khách, $R$: bán kính tìm của cấu hình |
-| Tin cậy $s_t$ | `trust_score` ∈ [0,1]; thợ mới chưa có đơn/đánh giá (điểm = 0): **0,5** | Kết quả thuật toán Trust Score (thành viên A). Mức trung tính cho thợ mới để không bị xếp cuối mãi (cold start) |
+| Tin cậy $s_t$ | `trust_score` ∈ [0,1]; thợ mới chưa có đơn/đánh giá (điểm = 0): **0,5** | Kết quả thuật toán Trust Score (mục 6.7). Mức trung tính cho thợ mới để không bị xếp cuối mãi (cold start) |
 | Kỹ năng $s_s$ | $\min(y, 10)/10$ | $y$: số năm kinh nghiệm của thợ (1 con số chung, khai ở Thông tin cá nhân; lưu đồng bộ vào `worker_skills.years` của mọi nhóm thợ nhận làm). Điều kiện "đúng nhóm" đã là ràng buộc cứng ở bước lọc |
 | Nhận đơn $s_a$ | $\dfrac{\text{nhận} + 3}{\text{nhận} + \text{bỏ lỡ} + 3}$ trong 30 ngày | Làm mượt Bayes (3 lần nhận "ảo"); không tính lời mời bị đóng sớm vì thợ khác nhận / khách huỷ |
 | Khối lượng $s_l$ | $1 - \min(k,5)/5$ | $k$: số đơn trong ngày — chia đều việc |
@@ -238,7 +237,7 @@ $$\text{cost}[i][j] = \begin{cases} 1 - S(o_i,w_j) \in [0,1] & \text{hợp lệ}
 
 *Vì sao đúng:* mọi lời giải gán đủ $\min(n,m)$ cặp. Tổng chi phí của toàn bộ cặp hợp lệ $\le \min(n,m) < \mathrm{BIG}$, nên thêm 1 cặp BIG luôn tệ hơn mọi cách dùng cặp hợp lệ → lời giải tối ưu dùng ít cặp BIG nhất (= nhiều cặp hợp lệ nhất). Với cùng số cặp hợp lệ $q$: $\sum(1 - S) = q - \sum S$ nên cực tiểu chi phí ⇔ cực đại tổng điểm. Cặp BIG trong lời giải bị bỏ (đơn chờ lượt sau).
 
-*Cài đặt* (`src/matching/hungarian.js`, tự viết, không dùng thư viện): Hungarian với thế vị $u, v$ và đường tăng ngắn nhất kiểu Dijkstra; nếu $n > m$ thì chuyển vị. Độ phức tạp $O(n^2 m)$ với $n \le m$, tức $O(n^3)$ khi $n \approx m$. Kiểm chứng bằng **300 ma trận ngẫu nhiên so với vét cạn** (mục 12).
+*Cài đặt* (`src/algorithms/hungarian.js`, tự viết, không dùng thư viện): Hungarian với thế vị $u, v$ và đường tăng ngắn nhất kiểu Dijkstra; nếu $n > m$ thì chuyển vị. Độ phức tạp $O(n^2 m)$ với $n \le m$, tức $O(n^3)$ khi $n \approx m$. Kiểm chứng bằng **300 ma trận ngẫu nhiên so với vét cạn** (mục 12).
 
 Mỗi đơn được gán → gửi offer cho đúng thợ được gán (hạn T). Thợ từ chối/hết hạn → đơn vào lượt lô kế tiếp, không mời lại thợ đó.
 
@@ -250,11 +249,27 @@ Mỗi đơn được gán → gửi offer cho đúng thợ được gán (hạn 
 ### 6.6. Chế độ 3 — Tự động (hybrid, mặc định khi demo)
 Hai chế độ trên mạnh ở hai hoàn cảnh khác nhau (xem thực nghiệm mục 13): vắng khách thì tức thời nhanh hơn vì không phải chờ cửa sổ lô; đông khách thì Hungarian tốt hơn hẳn vì tránh "đơn đến trước chiếm thợ tốt". Chế độ **auto** để hệ thống tự chọn ở **từng nhịp điều phối (2 giây)**, không cần admin canh giờ cao điểm:
 1. Gom các đơn đang chờ (chưa có lời mời còn hạn), xếp hạng ứng viên hợp lệ của từng đơn như 2 chế độ kia.
-2. Chia đơn thành **nhóm tranh chấp**: hai đơn chung ít nhất 1 thợ ứng viên thì cùng nhóm, nối bắc cầu — cài đặt bằng Union-Find (`src/matching/grouping.js`).
+2. Chia đơn thành **nhóm tranh chấp**: hai đơn chung ít nhất 1 thợ ứng viên thì cùng nhóm, nối bắc cầu — cài đặt bằng Union-Find (`src/algorithms/grouping.js`).
 3. Nhóm chỉ có 1 đơn → không ai tranh thợ của đơn đó, ghép tham lam đã tối ưu → **gửi ngay cho top-k** (như tức thời).
 4. Nhóm ≥ 2 đơn → **Hungarian trên riêng nhóm đó**, mỗi đơn 1 lời mời. Các nhóm độc lập nên giải riêng cho cùng kết quả với giải chung mà ma trận nhỏ hơn.
 
 Đơn ghi lại chế độ **thực tế** đã dùng (`orders.matching_mode`, `order_offers.mode` = `instant` | `batch`) để thống kê. Admin vẫn chọn được 1 trong 3 chế độ ở web quản trị (VD ép `batch` để thực nghiệm).
+
+### 6.7. Điểm tin cậy (Trust Score)
+
+Tiêu chí $s_t$ có trọng số lớn thứ hai (0,30), nên cần một con số phản ánh đúng "thợ có đáng tin không" mà không bị 1–2 sự kiện ngẫu nhiên làm lệch. Công thức ở `src/algorithms/trust.js` (hàm thuần, có kiểm thử riêng); `src/services/trust/trust.service.js` lấy số liệu và lưu kết quả.
+
+$$\text{trust} = 0{,}5\,s_{rating} + 0{,}3\,s_{reliability} + 0{,}2\,s_{complaints} \in [0,1]$$
+
+| Thành phần | Công thức | Ý nghĩa |
+|---|---|---|
+| Đánh giá $s_{rating}$ | $\dfrac{R-1}{4}$, $R = \dfrac{C\,m + \sum \text{sao}}{C + n}$, $C = 5$ | Trung bình **làm mượt Bayes** (như IMDb): $n$ đánh giá thật cộng $C$ đánh giá "ảo" ở mức $m$ = điểm TB cả nền tảng (≥ 20 đánh giá, chưa đủ thì 4,0). Thợ mới 1 đánh giá 5★ chỉ đạt $R ≈ 4{,}17$, không vượt thợ lâu năm 4,8★ |
+| Giữ lời $s_{reliability}$ | $\dfrac{K + 4{,}5}{K + X + 5}$ (180 ngày) | $K$: đơn hoàn thành, $X$: số lần **huỷ sau khi đã nhận**. 5 đơn ảo tỷ lệ 90% nên thợ mới huỷ 1 lần không thành "huỷ 100%". Từ chối / bỏ lỡ lời mời không tính ở đây vì đã là $s_a$ |
+| Khiếu nại $s_{complaints}$ | $\max\!\left(0,\; 1 - \dfrac{4V}{K + 5}\right)$ (180 ngày) | $V$: khiếu nại / bảo hành **của khách** mà admin xác nhận đúng; bị bác thì không tính. Theo tỷ lệ trên số đơn nên thợ làm nhiều không bị thiệt |
+
+**Khi nào tính lại:** ngay trong transaction của 4 sự kiện: khách đánh giá, thợ hoàn thành đơn, thợ huỷ đơn đã nhận, admin xử lý xong khiếu nại của khách. Mỗi lần điểm thay đổi ghi 1 dòng `trust_score_history` (điểm, điểm TB đơn giản, số đánh giá, lý do, từng thành phần) để giải thích được vì sao điểm đổi. Thợ chưa có lịch sử giữ 0 và khi ghép dùng mức trung tính 0,5 (cold start). App thợ (Hồ sơ → Hiệu suất làm việc) hiện điểm và 3 thành phần để thợ biết cần cải thiện gì.
+
+*Ví dụ:* 10 đơn hoàn thành, 8 đánh giá tổng 38★, huỷ 1 lần, 0 khiếu nại, $m = 4$: $R = (20 + 38)/13 = 4{,}46 \Rightarrow s_{rating} = 0{,}865$; $s_{reliability} = 14{,}5/16 = 0{,}906$; $s_{complaints} = 1$ ⇒ trust $= 0{,}4327 + 0{,}2719 + 0{,}2 = 0{,}905$.
 
 ## 7. Bộ điều phối (dispatcher)
 
@@ -280,7 +295,7 @@ Hoa hồng nền tảng $c = 15\%$ (`COMMISSION_RATE`). Với tổng tiền đơ
 
 Ví dụ: đơn 400.000đ → khách trả 400.000đ qua MoMo → ví thợ +340.000đ, nền tảng giữ 60.000đ.
 **Không nhận tiền mặt** (API thanh toán từ chối `cash`): nền tảng không phải đòi hoa hồng từ thợ, ví thợ không bao giờ âm, mọi khoản tiền đều có giao dịch đối soát được. Đổi lại phải chặn khách "quỵt": khách còn đơn đã hoàn thành mà chưa trả thì **chưa đặt được đơn mới**, app thợ hiện "Chờ khách thanh toán qua app" kèm số tiền sẽ vào ví.
-Rút tiền: ≥ 50.000đ, không vượt số dư khả dụng, cần tài khoản ngân hàng; bản demo tự duyệt (`WITHDRAWAL_AUTO_APPROVE=true`), admin vẫn có API duyệt/từ chối.
+Rút tiền: ≥ 50.000đ, không vượt số dư khả dụng, cần tài khoản ngân hàng. Tiền trừ khỏi ví ngay, lệnh **chờ admin duyệt** ở trang Tài chính của web quản trị; duyệt thì app thợ báo ngay, từ chối thì tiền hoàn về ví kèm lý do. Muốn duyệt tự động khi demo: `WITHDRAWAL_AUTO_APPROVE=true`.
 Số dư nằm ở `workers.wallet_balance` (bảng của nhóm); mỗi biến động ví là 1 dòng `worker_transactions` có `balance_after` (sổ cái, UNIQUE theo đơn + loại để không ghi trùng). Phần ghi ví được gọi ngay trong `settlePayment` của app khách (cùng transaction), nên mỗi đơn chỉ cộng thực nhận đúng 1 lần.
 
 ## 9. Thay đổi cơ sở dữ liệu
@@ -390,8 +405,8 @@ Mục tiêu: nhìn vào là biết app của **thợ điện**, dùng được n
 
 | Loại | Nội dung | Kết quả |
 |---|---|---|
-| Đơn vị (`backend-node/test/algorithms.test.js`, không cần CSDL) | Hungarian so với **vét cạn** trên 300 ma trận ngẫu nhiên (có ô không hợp lệ, n≠m) — cùng số cặp, cùng tổng điểm; ví dụ kinh điển Greedy thua; ưu tiên nhiều cặp hơn điểm cao; ma trận rỗng/toàn ô không hợp lệ; ma trận lớn không bao giờ thua Greedy; Union-Find nối bắc cầu; hàm điểm 5 tiêu chí + xếp hạng ổn định; hạng thợ | 8/8 đạt |
-| Tích hợp (`backend-node/test/worker-flow.test.js`, PostgreSQL/PostGIS thật, đi qua đúng API app thợ + app khách + admin) | đăng nhập email/SĐT, chặn sai vai trò; quên mật khẩu; Google/Facebook (giả lập phản hồi của Google/Meta); tải ảnh (chặn file giả ảnh); onboarding → admin từ chối → gửi lại → duyệt (thợ được báo); giấy tờ đã duyệt; **luồng đầy đủ**: offer → nhận → đi → đến → an toàn → báo giá → ảnh → xong → khách trả MoMo sandbox → ví cộng thực nhận → đánh giá → rút tiền; từ chối tiền mặt, nợ đơn thì không đặt được đơn mới; quy tắc mật khẩu; trạng thái duyệt + câu báo khi bật nhận đơn; kinh nghiệm chung đồng bộ mọi nhóm; admin bỏ duyệt → thợ bị tắt nhận đơn, lời mời bị thu hồi; bộ điều phối: từ chối → đợt sau, hết giờ, quá hạn → huỷ, thợ tắt app → lời mời đi tiếp; thợ huỷ → đơn quay lại hàng đợi; chế độ batch (Hungarian), **auto** (nhóm tranh chấp → Hungarian, đơn đứng riêng → Greedy); đơn hẹn: chặn trùng lịch, chỉ xuất phát trong 60 phút trước giờ hẹn; lọc kỹ năng / bán kính / vị trí cũ; thợ mới (cold start); khách / admin huỷ → app thợ được báo ngay; Socket.IO (`offer:new`, `worker:location`); API admin điều phối + rút tiền | 19/19 đạt (`npm test` chạy cả 2 file: 27/27) |
+| Đơn vị (`backend-node/test/algorithms.test.js`, không cần CSDL) | Hungarian so với **vét cạn** trên 300 ma trận ngẫu nhiên (có ô không hợp lệ, n≠m) — cùng số cặp, cùng tổng điểm; ví dụ kinh điển Greedy thua; ưu tiên nhiều cặp hơn điểm cao; ma trận rỗng/toàn ô không hợp lệ; ma trận lớn không bao giờ thua Greedy; Union-Find nối bắc cầu; hàm điểm 5 tiêu chí + xếp hạng ổn định; hạng thợ; **công thức điểm tin cậy** (làm mượt Bayes, giữ lời, khiếu nại theo tỷ lệ) | 9/9 đạt |
+| Tích hợp (`backend-node/test/worker-flow.test.js`, PostgreSQL/PostGIS thật, đi qua đúng API app thợ + app khách + admin) | đăng nhập email/SĐT, chặn sai vai trò; quên mật khẩu; Google/Facebook (giả lập phản hồi của Google/Meta); tải ảnh (chặn file giả ảnh); onboarding → admin từ chối **từng giấy tờ** kèm lý do → gửi lại → duyệt (thợ được báo); giấy tờ đã duyệt; **luồng đầy đủ**: offer → nhận → đi → đến → an toàn → báo giá → ảnh → xong → khách trả MoMo sandbox → ví cộng thực nhận → đánh giá → rút tiền; từ chối tiền mặt, nợ đơn thì không đặt được đơn mới; quy tắc mật khẩu; trạng thái duyệt + câu báo khi bật nhận đơn; kinh nghiệm chung đồng bộ mọi nhóm; admin bỏ duyệt → thợ bị tắt nhận đơn, lời mời bị thu hồi; bộ điều phối: từ chối → đợt sau, hết giờ, quá hạn → huỷ, thợ tắt app → lời mời đi tiếp; thợ huỷ → đơn quay lại hàng đợi; chế độ batch (Hungarian), **auto** (nhóm tranh chấp → Hungarian, đơn đứng riêng → Greedy); đơn hẹn: chặn trùng lịch, chỉ xuất phát trong 60 phút trước giờ hẹn; lọc kỹ năng / bán kính / vị trí cũ; thợ mới (cold start); khách / admin huỷ → app thợ được báo ngay; **điểm tin cậy**: hoàn thành / đánh giá / khiếu nại đúng / thợ huỷ làm điểm đổi đúng chiều, khiếu nại bị bác không đổi, ghi lịch sử, màn Hiệu suất trả đủ thành phần; Socket.IO (`offer:new`, `worker:location`); API admin điều phối + rút tiền | 20/20 đạt (`npm test` chạy cả 4 file, gồm app khách và web quản trị: 42/42) |
 | End-to-end giao diện | Playwright + Chromium chạy bản web của app trên backend Node với CSDL seed mới: đăng nhập, bật nhận đơn, lời mời hiện kèm bản đồ, nhận đơn, vuốt qua các bước, **bị chặn khi chưa tick checklist an toàn**, báo giá từ bảng giá → khách duyệt, ảnh sau, hoàn thành, khách trả MoMo → thợ thấy tiền vào ví, khách đánh giá; đăng ký thợ mới → màn Hoàn thiện hồ sơ → bấm X → Trang chủ chặn bật nhận đơn kèm câu báo; admin bỏ duyệt khi thợ đang ở màn Giấy tờ → app báo ngay, bấm ← không đơ, duyệt lại → app chúc mừng; web quản trị của nhóm duyệt hồ sơ, đổi chế độ ghép | Đạt |
 | Giao diện điện thoại | Chụp từng màn ở khung Android 393×851 có giả lập thanh trạng thái 32 px + 3 nút điều hướng 48 px | Đạt |
 | Build | `tsc --noEmit`; `expo export` web/android | Đạt |
@@ -463,7 +478,8 @@ Giới hạn của mô phỏng: khoảng cách đường chim bay, tốc độ c
 - Push cần development build (EAS): app bỏ qua đăng ký push khi chạy trong Expo Go (Expo Go Android không còn hỗ trợ push từ xa từ SDK 53). Khi app đang mở, lời mời vẫn đến ngay qua Socket.IO.
 - Đăng nhập Google trên điện thoại cần development build (Expo Go không dùng được redirect của Google); bản web dùng được ngay.
 - Thanh toán, rút tiền là sandbox/mô phỏng.
-- `trust_score` chưa được tính tự động (chờ thuật toán Trust Score của thành viên A); hiện dùng giá trị seed, thợ mới dùng mức trung tính 0,5 khi ghép.
+- Điểm tin cậy dùng tham số chọn theo kinh nghiệm (C = 5, cửa sổ 180 ngày, trọng số 0,5 / 0,3 / 0,2); khi có dữ liệu thật nên hiệu chỉnh lại, VD so điểm với tỷ lệ khiếu nại / huỷ thực tế của tháng sau.
+- Bảo hành hiện là khiếu nại loại `warranty` do admin xử lý; chưa tự tạo đơn bảo hành 0đ giao lại thợ cũ.
 - Mở rộng ghép cặp: chia bài toán theo khu vực (geohash) khi số đơn rất lớn; thêm tiêu chí thợ quen của khách; ước lượng thời gian tới nơi theo đường đi thật (OSRM) thay cho khoảng cách đường chim bay; học trọng số từ dữ liệu thật.
 - Bản đồ dùng máy chủ cộng đồng miễn phí (OpenFreeMap, OpenStreetMap) — đủ cho đồ án/demo; chạy thật quy mô lớn nên tự dựng máy chủ ảnh bản đồ hoặc dùng gói trả phí.
 - Bảng giá vật tư hiện cố định trong app; hướng phát triển: để admin quản lý bảng giá theo khu vực.

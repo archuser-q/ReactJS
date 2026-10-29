@@ -41,7 +41,7 @@ export default function WithdrawalsPanel() {
         type="info"
         showIcon
         title="Thợ yêu cầu rút tiền từ ví trên app thợ"
-        description="Số tiền đã bị trừ khỏi ví ngay khi thợ gửi yêu cầu. Duyệt = xác nhận đã chuyển khoản; từ chối = hoàn lại tiền vào ví thợ. Nếu backend đang bật WITHDRAWAL_AUTO_APPROVE=true (mặc định khi demo), lệnh rút được duyệt tự động nên trang này chỉ còn lịch sử."
+        description="Số tiền đã bị trừ khỏi ví ngay khi thợ gửi yêu cầu. Duyệt = xác nhận đã chuyển khoản; từ chối = hoàn lại tiền vào ví thợ. Nếu backend bật WITHDRAWAL_AUTO_APPROVE=true, lệnh rút được duyệt tự động nên trang này chỉ còn lịch sử."
       />
       <Flex vertical gap={16}>
           <Flex justify="space-between" align="center" wrap gap={12}>

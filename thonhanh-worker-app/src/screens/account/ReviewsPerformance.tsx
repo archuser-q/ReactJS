@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { api, errMsg, qk, type ReviewsPage } from '../../api';
+import { api, errMsg, qk, type Performance, type ReviewsPage } from '../../api';
 import { Banner, Card, StarRating } from '../../components/Bits';
 import { ProgressBar } from '../../components/Charts';
 import { Chip } from '../../components/Form';
@@ -115,17 +115,7 @@ export function PerformanceScreen() {
           contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={colors.primary} />}
         >
-          <Card style={{ alignItems: 'center', gap: 6 }}>
-            <Text style={styles.big}>{Math.round(p.trust_score * 100)}</Text>
-            <Text style={styles.bigLabel}>Điểm tin cậy / 100</Text>
-            <View style={{ alignSelf: 'stretch', marginTop: 6 }}>
-              <ProgressBar value={p.trust_score} height={10} />
-            </View>
-            <Text style={styles.explain}>
-              Điểm tin cậy được tính từ đánh giá của khách (ưu tiên đánh giá gần đây), số lượng đánh giá và các dấu hiệu bất thường. Điểm càng cao bạn
-              càng được ưu tiên khi hệ thống ghép đơn.
-            </Text>
-          </Card>
+          <TrustCard p={p} />
           <Metric icon="hand-okay" title="Tỷ lệ nhận đơn" value={pct(p.acceptance_rate)} ratio={p.acceptance_rate} sub={`Nhận ${p.offers_accepted} / ${p.offers_accepted + p.offers_rejected + p.offers_expired} lời mời (bỏ qua ${p.offers_rejected}, hết giờ ${p.offers_expired})`} />
           <Metric icon="check-decagram-outline" title="Tỷ lệ hoàn thành" value={pct(p.completion_rate)} ratio={p.completion_rate} sub={`Hoàn thành ${p.jobs_completed} đơn · hủy sau khi nhận ${p.jobs_cancelled_by_worker} đơn`} />
           <Metric icon="star-outline" title="Đánh giá trung bình" value={p.rating_avg ? `${fmtRating(p.rating_avg)}★` : '—'} ratio={p.rating_avg ? p.rating_avg / 5 : null} sub={`${p.rating_count} đánh giá`} />
@@ -141,11 +131,81 @@ export function PerformanceScreen() {
           </View>
           <Banner
             icon="lightbulb-on-outline"
-            text="Điểm tin cậy là một tiêu chí khi ghép đơn. Để giữ điểm cao: nhận đơn nhanh, hạn chế hủy sau khi đã nhận, chụp ảnh trước/sau rõ ràng và giữ thái độ lịch sự để được đánh giá tốt."
+            text="Để giữ điểm tin cậy cao: làm tới cùng đơn đã nhận (hạn chế huỷ), làm cẩn thận để không bị khiếu nại, giữ thái độ lịch sự để được đánh giá tốt. Nhận đơn nhanh là tiêu chí riêng (tỷ lệ nhận đơn) khi ghép."
           />
         </ScrollView>
       )}
     </Screen>
+  );
+}
+
+/**
+ * Điểm tin cậy và 3 thành phần (cùng công thức với backend src/algorithms/trust.js):
+ *   0,5 · đánh giá (làm mượt Bayes) + 0,3 · giữ lời (hoàn thành / huỷ sau khi nhận) + 0,2 · khiếu nại đúng
+ */
+function TrustCard({ p }: { p: Performance }) {
+  const t = p.trust;
+  const pctW = (w: number) => `${Math.round(w * 100)}%`;
+  return (
+    <Card style={{ gap: 6 }}>
+      <View style={{ alignItems: 'center', gap: 6 }}>
+        <Text style={styles.big}>{t?.has_history ? Math.round(p.trust_score * 100) : 50}</Text>
+        <Text style={styles.bigLabel}>Điểm tin cậy / 100</Text>
+        <View style={{ alignSelf: 'stretch', marginTop: 6 }}>
+          <ProgressBar value={t?.has_history ? p.trust_score : 0.5} height={10} />
+        </View>
+      </View>
+      {!t?.has_history || !t.components ? (
+        <Text style={styles.explain}>
+          Bạn chưa có đơn hoàn thành hay đánh giá nào, nên khi ghép đơn hệ thống tạm dùng mức trung tính 50 điểm. Điểm thật được tính từ đơn đầu tiên.
+        </Text>
+      ) : (
+        <>
+          <Text style={styles.explain}>Điểm càng cao bạn càng được ưu tiên khi hệ thống ghép đơn. Điểm gồm 3 phần:</Text>
+          <TrustPart
+            title={`Đánh giá của khách (${pctW(t.weights.rating)})`}
+            value={t.components.rating}
+            sub={
+              t.inputs.reviewCount
+                ? `${t.inputs.reviewCount} đánh giá, điểm đã làm mượt ${stars(t.bayesRating)}★. Mỗi đánh giá mới làm điểm đổi dần, không nhảy vọt vì 1–2 đánh giá đầu.`
+                : `Chưa có đánh giá: tạm tính theo điểm trung bình của cả nền tảng (${stars(t.inputs.mean)}★). Có đánh giá thật thì điểm đổi dần theo đánh giá của bạn.`
+            }
+          />
+          <TrustPart
+            title={`Giữ lời (${pctW(t.weights.reliability)})`}
+            value={t.components.reliability}
+            sub={
+              `180 ngày: hoàn thành ${t.inputs.completed} đơn, huỷ sau khi đã nhận ${t.inputs.cancelledAfterAccept} lần. ` +
+              // Công thức (K + 4,5) / (K + X + 5): thợ mới coi như có sẵn 5 đơn "ảo" giữ lời 90% (backend algorithms/trust.js)
+              (t.inputs.cancelledAfterAccept
+                ? 'Mỗi lần huỷ sau khi đã nhận bị trừ điểm; làm thêm đơn đến cùng thì điểm hồi lại dần.'
+                : 'Thợ mới bắt đầu từ 90 điểm, mỗi đơn hoàn thành mà không huỷ thì điểm tăng dần về 100.')
+            }
+          />
+          <TrustPart
+            title={`Khiếu nại (${pctW(t.weights.complaints)})`}
+            value={t.components.complaints}
+            sub={t.inputs.validComplaints ? `180 ngày: ${t.inputs.validComplaints} khiếu nại của khách được xác nhận đúng` : '180 ngày: không có khiếu nại nào được xác nhận'}
+          />
+        </>
+      )}
+    </Card>
+  );
+}
+
+const stars = (v: number | undefined) => (Math.round((v ?? 0) * 10) / 10).toFixed(1).replace('.', ',');
+
+function TrustPart({ title, value, sub }: { title: string; value: number; sub: string }) {
+  const color = value >= 0.8 ? colors.success : value >= 0.6 ? colors.warning : colors.danger;
+  return (
+    <View style={styles.part}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={styles.partTitle}>{title}</Text>
+        <Text style={[styles.partValue, { color }]}>{Math.round(value * 100)}</Text>
+      </View>
+      <ProgressBar value={value} color={color} />
+      <Text style={styles.small}>{sub}</Text>
+    </View>
   );
 }
 
@@ -185,6 +245,9 @@ const styles = StyleSheet.create({
   big: { fontSize: 52, fontWeight: '900', color: colors.success, fontVariant: ['tabular-nums'] },
   bigLabel: { fontSize: 13, color: colors.muted, fontWeight: '600' },
   explain: { fontSize: 12, color: colors.muted, textAlign: 'center', lineHeight: 18, marginTop: 6 },
+  part: { gap: 6, paddingTop: 10, marginTop: 4, borderTopWidth: 1, borderTopColor: colors.line },
+  partTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.text },
+  partValue: { fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] },
   mIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   mTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.text },
   mValue: { fontSize: 18, fontWeight: '900', fontVariant: ['tabular-nums'] },

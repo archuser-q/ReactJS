@@ -15,6 +15,7 @@ import type { ScreenProps } from '../../navigation/types';
 import { colors, op, radius } from '../../theme';
 import { fmtDateTime, formatVnd, money, orderCode, PAYMENT_LABEL } from '../../utils/format';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
+import { useWorkerMe } from '../../auth/AuthContext';
 
 const TX: Record<WalletTx['type'], { label: string; icon: IconName }> = {
   earning: { label: 'Thu nhập đơn', icon: 'cash-plus' },
@@ -31,8 +32,12 @@ function nextPage<T>(last: Paginated<T>) {
 
 // ---------------------------------------------------------------------------
 
-export function WalletHistoryScreen() {
-  const [tab, setTab] = useState<'tx' | 'wd'>('tx');
+export function WalletHistoryScreen({ route }: ScreenProps<'WalletHistory'>) {
+  // Mở thẳng tab "Yêu cầu rút tiền" khi đi từ dòng "đang chờ duyệt rút" hoặc từ thông báo rút tiền
+  const [tab, setTab] = useState<'tx' | 'wd'>(route.params?.tab ?? 'tx');
+  useEffect(() => {
+    if (route.params?.tab) setTab(route.params.tab);
+  }, [route.params?.tab]);
   const tx = useInfiniteQuery({
     queryKey: qk.walletTx,
     queryFn: ({ pageParam }) => api.walletTransactions(pageParam),
@@ -168,6 +173,7 @@ export function WithdrawScreen({ navigation }: ScreenProps<'Withdraw'>) {
   const qc = useQueryClient();
   const ui = useOverlay();
   const w = useQuery({ queryKey: qk.wallet, queryFn: api.wallet });
+  const me = useWorkerMe();
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   useRefetchOnFocus(w.refetch); // quay lại từ màn liên kết ngân hàng
@@ -201,7 +207,10 @@ export function WithdrawScreen({ navigation }: ScreenProps<'Withdraw'>) {
       const done = res.status === 'completed';
       await ui.alert(
         done ? 'Rút tiền thành công' : 'Đã gửi yêu cầu rút tiền',
-        res.transaction_code ? `Mã giao dịch: ${res.transaction_code}` : 'Yêu cầu sẽ được xử lý trong 1 ngày làm việc.',
+        res.transaction_code
+          ? `Mã giao dịch: ${res.transaction_code}`
+          : // Tiền được tạm trừ ngay để không rút vượt số dư; bị từ chối thì hoàn lại (backend: finance.service createWithdrawal / processWithdrawal)
+            `${money(value)} đã được tạm trừ khỏi ví trong lúc chờ quản trị viên duyệt (trong 1 ngày làm việc). Nếu bị từ chối, tiền được hoàn lại vào ví ngay.`,
         'success',
       );
       navigation.goBack();
@@ -214,7 +223,10 @@ export function WithdrawScreen({ navigation }: ScreenProps<'Withdraw'>) {
 
   return (
     <Screen>
-      <Header title="Rút tiền" subtitle="Môi trường demo: tiền được chuyển ngay (mô phỏng)" />
+      <Header
+        title="Rút tiền"
+        subtitle={me.data?.settings.withdrawal_auto_approve === false ? 'Quản trị viên duyệt trong 1 ngày làm việc (mô phỏng)' : 'Môi trường demo: tiền được chuyển ngay (mô phỏng)'}
+      />
       <ScrollView
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
@@ -223,6 +235,11 @@ export function WithdrawScreen({ navigation }: ScreenProps<'Withdraw'>) {
         <Card style={{ backgroundColor: colors.dark, borderColor: colors.dark }}>
           <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Số dư có thể rút</Text>
           <Text style={{ color: '#fff', fontSize: 26, fontWeight: '900', fontVariant: ['tabular-nums'], marginTop: 4 }}>{money(d.available_for_withdrawal)}</Text>
+          {d.pending_withdrawal > 0 ? (
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 4 }}>
+              Đã trừ {money(d.pending_withdrawal)} đang chờ quản trị viên duyệt rút
+            </Text>
+          ) : null}
         </Card>
         <TextField
           label="Số tiền muốn rút"

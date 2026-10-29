@@ -212,6 +212,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 19, fontWeight: '800', marginTop: 4, ...tabular },
   statSub: { fontSize: 11, color: colors.faint, marginTop: 1 },
   banner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: radius.lg, borderWidth: 1 },
-  bannerText: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  // minWidth 0: chữ dài liền (VD đường link, chuỗi không dấu cách) vẫn xuống dòng trong khung thay vì đẩy tràn ra ngoài
+  bannerText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '600', lineHeight: 18 },
   bannerAction: { fontSize: 13, fontWeight: '800' },
 });

@@ -13,12 +13,17 @@
 import { useEffect } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
-import { qk } from '../api';
+import { qk, type WorkerMe } from '../api';
 import { useOverlay } from '../components/Overlay';
 import { serverUrl } from '../config/env';
 
 type Ids = { order_id?: number };
-type NotificationEvent = { type?: string; title?: string; body?: string | null; data?: { order_id?: number | string } | null };
+type NotificationEvent = {
+  type?: string;
+  title?: string;
+  body?: string | null;
+  data?: { order_id?: number | string; withdrawal_id?: number | string } | null;
+};
 
 let current: Socket | null = null;
 
@@ -66,6 +71,8 @@ export function useRealtime(token: string | null) {
       void qc.invalidateQueries({ queryKey: qk.home });
       // Admin duyệt / từ chối / bỏ duyệt hồ sơ: cập nhật ngay màn giấy tờ, trang chủ (không chờ hỏi định kỳ)
       if (n?.type === 'verification') void qc.invalidateQueries({ queryKey: qk.me });
+      // Admin trả lời báo cáo sự cố: màn "Báo cáo đã gửi" hiện ngay kết quả
+      if (n?.type === 'complaint') void qc.invalidateQueries({ queryKey: qk.reports });
       if (n?.type === 'payment') {
         void qc.invalidateQueries({ queryKey: qk.wallet });
         void qc.invalidateQueries({ queryKey: qk.walletTx });
@@ -76,6 +83,15 @@ export function useRealtime(token: string | null) {
         if (orderId) {
           void qc.invalidateQueries({ queryKey: qk.job(orderId) });
           ui.toast(n.body || n.title || 'Khách đã thanh toán', 'success');
+        } else if (n.data?.withdrawal_id) {
+          // Lệnh rút tiền được admin duyệt / từ chối trên web quản trị
+          void qc.invalidateQueries({ queryKey: qk.withdrawals });
+          // chế độ duyệt tự động: thợ vừa tự rút và đã thấy hộp thoại kết quả, không báo lặp
+          const auto = qc.getQueryData<WorkerMe>(qk.me)?.settings.withdrawal_auto_approve;
+          if (!auto) {
+            const ok = !/từ chối/i.test(n.title ?? '');
+            ui.toast([n.title, n.body].filter(Boolean).join(': ') || 'Cập nhật lệnh rút tiền', ok ? 'success' : 'error');
+          }
         }
       }
     });

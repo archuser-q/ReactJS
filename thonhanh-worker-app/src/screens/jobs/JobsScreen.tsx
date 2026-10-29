@@ -9,6 +9,7 @@ import { StatusPill } from '../../components/Bits';
 import { Segmented } from '../../components/Form';
 import { Icon } from '../../components/Icon';
 import { StateView } from '../../components/StateView';
+import { useOverlay } from '../../components/Overlay';
 import { useRootNav, type TabParamList } from '../../navigation/types';
 import { colors, radius } from '../../theme';
 import { fmtWhen, money, orderCode, PAYMENT_LABEL, serviceIcon } from '../../utils/format';
@@ -18,6 +19,7 @@ type Group = 'active' | 'completed' | 'cancelled';
 
 export default function JobsScreen() {
   const navigation = useRootNav();
+  const ui = useOverlay();
   const route = useRoute<RouteProp<TabParamList, 'Jobs'>>();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
@@ -57,7 +59,16 @@ export default function JobsScreen() {
         keyExtractor={(j) => String(j.id)}
         contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 32, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={q.isRefetching && !q.isFetchingNextPage} onRefresh={() => void q.refetch()} tintColor={colors.primary} />}
-        renderItem={({ item }) => <JobCard job={item} onPress={() => navigation.navigate('JobDetail', { orderId: item.id })} />}
+        renderItem={({ item }) => (
+          <JobCard
+            job={item}
+            onPress={() =>
+              item.handed_over
+                ? ui.toast('Bạn đã huỷ nhận đơn này, đơn đã chuyển cho thợ khác nên không xem được chi tiết', 'info')
+                : navigation.navigate('JobDetail', { orderId: item.id })
+            }
+          />
+        )}
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && void q.fetchNextPage()}
         onEndReachedThreshold={0.4}
         ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ margin: 12 }} /> : null}
@@ -81,12 +92,21 @@ export default function JobsScreen() {
   );
 }
 
+const CANCELLED_BY: Record<NonNullable<JobItem['cancelled_by_role']>, string> = {
+  worker: 'Bạn huỷ',
+  customer: 'Khách huỷ',
+  admin: 'Quản trị viên huỷ',
+  system: 'Hệ thống huỷ',
+};
+
 export function JobCard({ job, onPress }: { job: JobItem; onPress: () => void }) {
+  // Đơn đã chuyển cho thợ khác: với thợ này coi như đã huỷ (trạng thái thật của đơn là của thợ khác)
+  const cancelled = job.status === 'cancelled' || job.handed_over;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
       <View style={styles.top}>
         <View style={styles.topLeft}>
-          <StatusPill status={job.status} small />
+          <StatusPill status={cancelled ? 'cancelled' : job.status} small />
           {job.rating ? (
             <View style={styles.rating} accessibilityLabel={`Khách đánh giá ${job.rating} sao`}>
               <Icon name="star" size={13} color={colors.amber} />
@@ -94,7 +114,15 @@ export function JobCard({ job, onPress }: { job: JobItem; onPress: () => void })
             </View>
           ) : null}
         </View>
-        <Text style={styles.when}>{fmtWhen(job.scheduled_at && job.status !== 'completed' ? job.scheduled_at : job.completed_at ?? job.accepted_at ?? job.created_at)}</Text>
+        <Text style={styles.when}>
+          {fmtWhen(
+            cancelled
+              ? (job.cancelled_at ?? job.created_at)
+              : job.scheduled_at && job.status !== 'completed'
+                ? job.scheduled_at
+                : (job.completed_at ?? job.accepted_at ?? job.created_at),
+          )}
+        </Text>
       </View>
       <View style={styles.mid}>
         <View style={styles.icon}>
@@ -115,13 +143,22 @@ export function JobCard({ job, onPress }: { job: JobItem; onPress: () => void })
           </View>
         ) : null}
       </View>
+      {cancelled && job.cancelled_by_role ? (
+        <View style={styles.cancel}>
+          <Icon name={job.cancelled_by_role === 'worker' ? 'account-cancel-outline' : 'close-circle-outline'} size={15} color={colors.danger} />
+          <Text style={styles.cancelText} numberOfLines={2}>
+            <Text style={styles.cancelWho}>{job.handed_over ? 'Bạn huỷ nhận · đơn đã chuyển cho thợ khác' : CANCELLED_BY[job.cancelled_by_role]}</Text>
+            {job.cancel_reason ? `: ${job.cancel_reason}` : ''}
+          </Text>
+        </View>
+      ) : null}
       {/* Chữ bên trái co lại (cắt "..."), số tiền bên phải giữ nguyên: máy có font/cỡ chữ lớn cũng không tràn khung */}
       <View style={styles.bottom}>
         <Text style={styles.code} numberOfLines={1}>
           {orderCode(job)} · {job.customer_name}
         </Text>
         <View style={styles.right}>
-          <Text style={styles.money} numberOfLines={1}>
+          <Text style={[styles.money, cancelled && styles.moneyOff]} numberOfLines={1}>
             {job.net_earning !== null ? `+${money(job.net_earning)}` : money(job.total_amount)}
           </Text>
           {job.status === 'completed' ? (
@@ -157,6 +194,10 @@ const styles = StyleSheet.create({
   code: { flex: 1, fontSize: 13, color: colors.muted, fontVariant: ['tabular-nums'] },
   right: { alignItems: 'flex-end', flexShrink: 0, gap: 2 },
   money: { fontSize: 16, fontWeight: '800', color: colors.text, fontVariant: ['tabular-nums'] },
+  moneyOff: { color: colors.faint, textDecorationLine: 'line-through' },
+  cancel: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: colors.dangerBg, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 7 },
+  cancelText: { flex: 1, minWidth: 0, fontSize: 12.5, color: colors.text, lineHeight: 17 },
+  cancelWho: { fontWeight: '800', color: colors.danger },
   pay: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   payText: { fontSize: 12, fontWeight: '700' },
 });

@@ -29,7 +29,7 @@ export type RootStackParamList = {
   Performance: undefined;
   BankAccount: undefined;
   Withdraw: undefined;
-  WalletHistory: undefined;
+  WalletHistory: { tab?: 'tx' | 'wd' } | undefined;
   EarningHistory: undefined;
   Help: undefined;
   ReportIssue: { orderId?: number; type?: string } | undefined;

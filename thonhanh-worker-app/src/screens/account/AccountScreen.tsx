@@ -123,7 +123,7 @@ export default function AccountScreen() {
 
           <MenuSection title="Đánh giá & hiệu suất">
             <MenuItem icon="star-outline" label="Đánh giá từ khách hàng" sub={d?.profile.rating_avg ? `★ ${fmtRating(d.profile.rating_avg)} · ${d.profile.rating_count} đánh giá` : 'Chưa có đánh giá'} onPress={() => navigation.navigate('Reviews')} iconColor={colors.warning} />
-            <MenuItem icon="chart-line" label="Hiệu suất làm việc" sub="Tỷ lệ nhận đơn, hoàn thành, hủy" onPress={() => navigation.navigate('Performance')} last />
+            <MenuItem icon="chart-line" label="Hiệu suất làm việc" sub="Điểm tin cậy, tỷ lệ nhận đơn, hoàn thành, hủy" onPress={() => navigation.navigate('Performance')} last />
           </MenuSection>
 
           <MenuSection title="Tài chính">

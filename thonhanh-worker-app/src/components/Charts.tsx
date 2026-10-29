@@ -63,6 +63,11 @@ export function BarChart({
 }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   const dense = data.length > 12;
+  // Biểu đồ dày (từng ngày trong tháng): chỉ ghi nhãn ngày 1, 5, 10, 15... và ngày đang tô đậm (hôm nay);
+  // bỏ nhãn thường nằm sát ngày tô đậm để 2 số không đè lên nhau
+  const hiIndex = data.findIndex((d) => d.key === highlightKey);
+  const showLabel = (i: number) =>
+    !dense || i === hiIndex || ((i === 0 || (i + 1) % 5 === 0) && (hiIndex < 0 || Math.abs(i - hiIndex) > 1));
   const barArea = height - 34; // chừa chỗ cho nhãn số tiền phía trên và nhãn ngày phía dưới
   return (
     <View style={[styles.bars, { height }]}>
@@ -88,9 +93,21 @@ export function BarChart({
                 }}
               />
             </View>
-            <Text style={[styles.lbl, hi && { color, fontWeight: '800' }]} numberOfLines={1}>
-              {dense && i % 5 !== 0 && i !== data.length - 1 ? ' ' : d.label}
-            </Text>
+            {dense ? (
+              // Cột rất hẹp (~9px): nhãn nằm đè ra 2 bên cột, không bị cắt thành "1." / "2."
+              <View style={styles.lblBox}>
+                {showLabel(i) ? (
+                  // không dùng numberOfLines: bản web sẽ ép nhãn rộng bằng cột rồi cắt "..."
+                  <Text style={[styles.lbl, styles.lblDense, hi && { color, fontWeight: '800' }]}>
+                    {d.label}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={[styles.lbl, hi && { color, fontWeight: '800' }]} numberOfLines={1}>
+                {d.label}
+              </Text>
+            )}
           </View>
         );
       })}
@@ -113,4 +130,6 @@ const styles = StyleSheet.create({
 
   val: { fontSize: 9, color: colors.faint, marginBottom: 3, fontVariant: ['tabular-nums'] },
   lbl: { fontSize: 10, color: colors.faint, height: 16, lineHeight: 16, marginTop: 2 },
+  lblBox: { height: 18, width: '100%', overflow: 'visible' },
+  lblDense: { position: 'absolute', left: '50%', width: 24, marginLeft: -12, textAlign: 'center' },
 });

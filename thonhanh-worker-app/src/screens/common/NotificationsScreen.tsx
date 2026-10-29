@@ -60,7 +60,9 @@ export default function NotificationsScreen() {
     const orderId = n.data?.order_id;
     if (t === 'verification') return navigation.navigate(approved ? 'Documents' : 'Onboarding');
     if (!approved) return;
-    if (n.data?.withdrawal_id) return navigation.navigate('WalletHistory');
+    if (n.data?.withdrawal_id) return navigation.navigate('WalletHistory', { tab: 'wd' });
+    // Kết quả xử lý báo cáo sự cố của thợ: mở danh sách báo cáo (có cả câu trả lời của admin), không mở đơn
+    if (n.data?.complaint_id) return navigation.navigate('Reports');
     if (t === 'offer') return navigation.navigate('Main', { screen: 'Home' });
     if (orderId) {
       try {

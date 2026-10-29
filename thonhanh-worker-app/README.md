@@ -41,7 +41,8 @@ Các lệnh `demo:customer` chạy trong thư mục **backend-node** (đóng vai
 4. **Báo giá phát sinh** → chọn mục trong bảng giá (giá cố định, chỉ chọn số lượng) hoặc thêm *mục ngoài bảng giá* → gửi; khách duyệt: `docker compose exec api npm run demo:customer -- quote <mã đơn>` (mã đơn như trên app, VD `TN261019000152`, hoặc số id). Khi chưa duyệt, app ghi rõ "khách đồng ý thì bạn nhận thêm …".
 5. Vuốt *Hoàn thành* (chụp ảnh sau). Màn làm việc hiện "Chờ khách thanh toán qua app". Khách trả (MoMo sandbox) và đánh giá:
    `... demo:customer -- pay <mã đơn>` → app thợ báo đã nhận tiền → `... demo:customer -- review <mã đơn> --stars 5`.
-6. Tab **Thu nhập**: ví cộng 85% tiền đơn (đã trừ phí 15%); thử *Rút tiền*.
+6. Tab **Thu nhập**: ví cộng 85% tiền đơn (đã trừ phí 15%); thử *Rút tiền* → lệnh chờ duyệt ở web quản trị (Tài chính → Duyệt rút tiền), admin duyệt xong app báo ngay.
+   Tab **Hồ sơ → Hiệu suất làm việc**: điểm tin cậy và 3 thành phần (đánh giá, giữ lời, khiếu nại) vừa được tính lại sau đơn này.
    Không có tiền mặt: khách còn đơn chưa trả thì chưa đặt được đơn mới (lệnh `rush` tự trả giúp).
 7. Thuật toán ghép cặp khi đông đơn: `docker compose --profile bots up -d` (thợ ảo) rồi `... demo:customer -- rush --count 12`, xem `docker compose exec api npm run demo:customer -- show <mã đơn>` (đơn nào đi Greedy, đơn nào đi Hungarian).
 
@@ -93,10 +94,10 @@ Hoàn thiện hồ sơ (tự mở sau khi đăng ký, nút X để bỏ qua): Th
 Tab chính (mọi thợ; chưa duyệt thì không bật nhận đơn được):
 ├─ Trang chủ    thẻ hồ sơ khi chưa duyệt (nộp giấy tờ / chờ duyệt / bị từ chối kèm lý do),
 │               trạng thái nhận đơn (công tắc) hoặc việc đang làm, số liệu hôm nay / 7 ngày, lịch hẹn
-├─ Công việc    Đang làm (gồm lịch hẹn) · Hoàn thành · Đã hủy  →  Màn làm việc  →  Chat với khách
+├─ Công việc    Đang làm (gồm lịch hẹn) · Hoàn thành · Đã hủy (ghi ai huỷ, gồm cả đơn bạn đã huỷ nhận)  →  Màn làm việc  →  Chat
 ├─ Thu nhập     Ngày/Tuần/Tháng + biểu đồ, so với cùng kỳ, ví → Lịch sử ví, Rút tiền, Ngân hàng
 └─ Hồ sơ        Thẻ đối tác (hạng, đánh giá, số đơn, điểm tin cậy) + tiến độ lên hạng, Thông tin cá nhân, Kỹ năng,
-                Giấy tờ, Khu vực nhận việc, Đánh giá, Hiệu suất 30 ngày, Trợ giúp, Báo cáo sự cố
+                Giấy tờ, Khu vực nhận việc, Đánh giá, Hiệu suất 30 ngày + giải thích điểm tin cậy, Trợ giúp, Báo cáo sự cố
 Toàn cục: Lời mời nhận đơn (hiện đè lên mọi màn: rung, đếm ngược, bản đồ, thu nhập thực nhận) · Thông báo
           · Báo ngay khi admin duyệt / từ chối / bỏ duyệt hồ sơ (không cần thoát app)
 Mọi màn có dữ liệu: kéo xuống để tải lại; quay lại màn (bấm ←, đổi tab) cũng tự tải lại.

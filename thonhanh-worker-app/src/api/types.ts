@@ -101,6 +101,8 @@ export type WorkerMe = {
     commission_rate: number;
     min_withdrawal: number;
     location_max_age_minutes: number;
+    /** true: lệnh rút tiền được duyệt ngay (demo); false: chờ admin duyệt trên web quản trị */
+    withdrawal_auto_approve: boolean;
   };
 };
 
@@ -165,6 +167,11 @@ export type JobItem = {
   unread_messages: number;
   /** Số sao khách đánh giá (đơn đã hoàn thành) */
   rating: number | null;
+  /** Đơn đã huỷ: ai huỷ (nhìn từ phía thợ đang xem) và lý do */
+  cancelled_by_role: 'worker' | 'customer' | 'admin' | 'system' | null;
+  cancel_reason: string | null;
+  /** Thợ đã "Hủy nhận việc" khi chưa tới, đơn đã chuyển cho thợ khác: chỉ để xem lại, không mở được chi tiết */
+  handed_over: boolean;
 };
 
 export type JobPhoto = { id: number; kind: 'before' | 'after'; url: string; created_at: string };
@@ -365,8 +372,20 @@ export type Performance = {
   rating_avg: number | null;
   rating_count: number;
   trust_score: number;
+  /** Giải thích điểm tin cậy (backend: src/algorithms/trust.js) */
+  trust: TrustExplain;
   total_completed: number;
   total_net: number;
+};
+
+/** Điểm tin cậy = 0,5·đánh giá + 0,3·giữ lời + 0,2·khiếu nại (mỗi thành phần 0..1) */
+export type TrustExplain = {
+  has_history: boolean;
+  score?: number;
+  bayesRating?: number;
+  components?: { rating: number; reliability: number; complaints: number };
+  weights: { rating: number; reliability: number; complaints: number };
+  inputs: { reviewCount: number; ratingSum: number; completed: number; cancelledAfterAccept: number; validComplaints: number; mean: number };
 };
 
 // ---------- Khác ----------
@@ -408,7 +427,7 @@ export type AppNotification = {
   body: string | null;
   /** order | offer | quote | chat | payment | review | complaint | warranty | worker_verification */
   type: string;
-  data: { order_id?: number; offer_id?: number; quote_id?: number; withdrawal_id?: number; kind?: string } | null;
+  data: { order_id?: number; offer_id?: number; quote_id?: number; withdrawal_id?: number; complaint_id?: number; kind?: string } | null;
   is_read: boolean;
   created_at: string;
 };

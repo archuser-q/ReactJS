@@ -6,7 +6,7 @@
  * Đã đến nơi trở đi: bỏ bản đồ, nhường chỗ cho checklist an toàn, ảnh, báo giá.
  */
 import { useMemo, useState } from 'react';
-import { Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Text } from '../../components/Text';
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -230,23 +230,17 @@ export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobD
 
   const report = () => navigation.navigate('ReportIssue', { orderId: j.id });
 
+  // Không có "chia sẻ địa chỉ cho người thân": sẽ gửi địa chỉ nhà khách cho người ngoài (thông tin cá nhân của khách)
+  const moreChoices = [
+    ...(j.can_report ? ['Báo cáo sự cố'] : []),
+    ...(SUPPORT_PHONE ? [`Gọi tổng đài hỗ trợ ${SUPPORT_PHONE}`] : []),
+    ...(j.can_cancel ? [j.cancel_requeues ? 'Hủy nhận việc' : 'Hủy đơn (khách vắng mặt...)'] : []),
+  ];
   const more = async () => {
-    const live = j.status !== 'completed' && j.status !== 'cancelled';
-    const choices = [
-      ...(live ? ['Chia sẻ địa chỉ đang làm cho người thân'] : []),
-      ...(j.can_report ? ['Báo cáo sự cố'] : []),
-      ...(SUPPORT_PHONE ? [`Gọi tổng đài hỗ trợ ${SUPPORT_PHONE}`] : []),
-      ...(j.can_cancel ? [j.cancel_requeues ? 'Hủy nhận việc' : 'Hủy đơn (khách vắng mặt...)'] : []),
-    ];
-    const pick = await ui.choose({ title: 'Tùy chọn', choices, confirmText: 'Chọn' });
+    const pick = await ui.choose({ title: 'Tùy chọn', choices: moreChoices, confirmText: 'Chọn' });
     if (!pick) return;
     if (pick.startsWith('Hủy')) void cancelJob();
     else if (pick === 'Báo cáo sự cố') report();
-    else if (pick.startsWith('Chia sẻ')) {
-      void Share.share({
-        message: `Mình đang làm đơn ${orderCode(j)} (${j.service_name}) của Thợ Nhanh tại: ${j.address_text}.\nBản đồ: https://maps.google.com/?q=${j.latitude},${j.longitude}`,
-      }).catch(() => undefined);
-    }
     else if (SUPPORT_PHONE) void Linking.openURL(`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`);
   };
 
@@ -492,6 +486,8 @@ export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobD
             })}
             <Divider style={{ marginVertical: 6 }} />
             <KeyValue label={priceFinal ? 'Khách trả' : 'Khách trả tạm tính'} value={money(j.total_amount)} strong />
+            {/* Báo giá chờ duyệt chưa phải tiền thật nên chưa cộng vào: ghi ngay dưới con số để khỏi tưởng bị thiếu */}
+            {pendingExtra ? <Text style={[styles.small, { marginTop: -4, marginBottom: 4 }]}>Chưa gồm {money(pendingExtra)} phát sinh đang chờ khách duyệt.</Text> : null}
             <KeyValue
               label={`Phí nền tảng ${Math.round(rate * 100)}%`}
               value={`-${money(j.earning?.commission_amount ?? Math.round((j.total_amount ?? 0) * rate))}`}
@@ -616,9 +612,11 @@ export default function JobDetailScreen({ route, navigation }: ScreenProps<'JobD
         ) : (
           <View style={{ flex: 1 }} />
         )}
-        <Pressable onPress={more} style={[styles.floatBtn, !solid && shadow.md]} accessibilityLabel="Tùy chọn">
-          <Icon name="dots-horizontal" size={22} color={colors.navy} />
-        </Pressable>
+        {moreChoices.length ? (
+          <Pressable onPress={more} style={[styles.floatBtn, !solid && shadow.md]} accessibilityLabel="Tùy chọn">
+            <Icon name="dots-horizontal" size={22} color={colors.navy} />
+          </Pressable>
+        ) : null}
       </View>
 
       {j.next_status && j.next_action ? (

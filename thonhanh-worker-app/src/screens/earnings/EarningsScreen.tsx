@@ -52,6 +52,14 @@ export default function EarningsScreen() {
             <Text style={styles.walletLabel}>Số dư ví</Text>
           </View>
           <Text style={styles.balance}>{w ? money(w.balance) : '...'}</Text>
+          {/* Lệnh rút đang chờ duyệt đã được tạm trừ khỏi số dư: ghi rõ để thợ không tưởng mất tiền */}
+          {w && w.pending_withdrawal > 0 ? (
+            <Pressable onPress={() => navigation.navigate('WalletHistory', { tab: 'wd' })} style={styles.pending} hitSlop={6}>
+              <Icon name="clock-outline" size={14} color={colors.volt} />
+              <Text style={styles.pendingText}>Đã trừ {money(w.pending_withdrawal)} đang chờ duyệt rút</Text>
+              <Icon name="chevron-right" size={14} color="rgba(255,255,255,0.8)" />
+            </Pressable>
+          ) : null}
           {/* Mọi đơn khách trả qua MoMo / VNPay: tiền vào ví thợ ngay sau khi trừ phí, thợ rút về ngân hàng */}
           <Text style={styles.walletNote}>
             Khách trả qua MoMo / VNPay, tiền vào ví ngay sau khi trừ phí {pctRate}. Rút về ngân hàng từ {money(w?.min_withdrawal ?? me.data?.settings.min_withdrawal ?? 50000)}.
@@ -111,7 +119,13 @@ export default function EarningsScreen() {
                   height={150}
                 />
               </View>
-              <Text style={styles.chartNote}>{period === 'today' ? '7 ngày gần nhất' : period === 'week' ? 'Từ thứ 2 đến chủ nhật' : 'Từng ngày trong tháng'}</Text>
+              <Text style={styles.chartNote}>
+                {period === 'today'
+                  ? '7 ngày gần nhất'
+                  : period === 'week'
+                    ? 'Từ thứ 2 đến chủ nhật'
+                    : `Thực nhận theo từng ngày của tháng ${Number(s.chart[0]?.key.slice(5, 7)) || ''} (số dưới cột là ngày)`}
+              </Text>
             </Card>
 
             <View style={styles.grid}>
@@ -171,6 +185,8 @@ const styles = StyleSheet.create({
   walletLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600' },
   balance: { color: '#fff', fontSize: 30, fontWeight: '900', fontVariant: ['tabular-nums'], marginTop: 4 },
   walletNote: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 4 },
+  pending: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.14)' },
+  pendingText: { color: '#fff', fontSize: 12, fontWeight: '700', flexShrink: 1 },
   walletBtns: { flexDirection: 'row', gap: 8, marginTop: 14 },
   walletBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 12, paddingVertical: 9 },
   walletBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
