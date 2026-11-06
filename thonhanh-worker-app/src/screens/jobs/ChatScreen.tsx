@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Image, Linking, Pressable, ScrollView, StyleSheet, View, type TextInput as RNTextInput } from 'react-native';
+import { FlatList, Image, Linking, Pressable, ScrollView, StyleSheet, View, type TextInputInstance } from 'react-native';
 import { Text, TextInput } from '../../components/Text';
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,7 +26,7 @@ export default function ChatScreen({ route }: ScreenProps<'Chat'>) {
   const upload = useUploadImages();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const inputRef = useRef<RNTextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
 
   const q = useQuery({
     queryKey: qk.messages(orderId),

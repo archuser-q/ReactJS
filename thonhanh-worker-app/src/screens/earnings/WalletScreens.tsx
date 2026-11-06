@@ -76,8 +76,8 @@ export function WalletHistoryScreen({ route }: ScreenProps<'WalletHistory'>) {
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={colors.primary} />}
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && void q.fetchNextPage()}
         renderItem={({ item }) => (tab === 'tx' ? <TxRow t={item as WalletTx} /> : <WithdrawalRow w={item as Withdrawal} />)}
-        ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null}
-        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : null} empty="Chưa có giao dịch nào" icon="wallet-outline" />}
+        ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : undefined}
+        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : undefined} empty="Chưa có giao dịch nào" icon="wallet-outline" />}
       />
     </Screen>
   );
@@ -161,7 +161,7 @@ export function EarningHistoryScreen({ navigation }: ScreenProps<'EarningHistory
             <Text style={[styles.rowMoney, { color: colors.success }]}>+{money(e.net_amount)}</Text>
           </Pressable>
         )}
-        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : null} empty="Chưa có thu nhập" icon="cash-multiple" />}
+        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : undefined} empty="Chưa có thu nhập" icon="cash-multiple" />}
       />
     </Screen>
   );

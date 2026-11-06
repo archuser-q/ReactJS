@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { Header, Screen } from '../components/Screen';
 import { Icon } from '../components/Icon';
@@ -32,7 +32,8 @@ export default function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
   const [sending, setSending] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  // RN 0.88 (SDK 58): ref dùng kiểu instance
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [viewing, setViewing] = useState<string | null>(null);
 
   const loadMessages = useCallback(async () => {

@@ -5,8 +5,8 @@ Nền tảng kết nối khách hàng với **thợ điện**. Repo này chứa 
 | Thư mục | Phần | Công nghệ | API gọi tới | Phụ trách |
 |---|---|---|---|---|
 | `dashboard/` | Web quản trị | React 19 + Vite + TanStack Router + Ant Design | `/api/admin/...` (cookie) | thành viên nhóm |
-| `thonhanh-customer-app/` | App khách hàng | Expo SDK 57 (React Native) | `/api/customer/...` (Bearer JWT) | thành viên nhóm |
-| `thonhanh-worker-app/` | App thợ (+ thuật toán ghép cặp, điểm tin cậy ở backend) | Expo SDK 57 (React Native, chạy được cả bản web) | `/api/worker/...` (Bearer JWT) | thành viên B |
+| `thonhanh-customer-app/` | App khách hàng | Expo SDK 58 (React Native) | `/api/customer/...` (Bearer JWT) | thành viên nhóm |
+| `thonhanh-worker-app/` | App thợ (+ thuật toán ghép cặp, điểm tin cậy ở backend) | Expo SDK 58 (React Native, chạy được cả bản web) | `/api/worker/...` (Bearer JWT) | thành viên B |
 
 ```
  App khách ──┐                                   ┌── Socket.IO (cùng cổng 3000): lời mời, trạng thái đơn,

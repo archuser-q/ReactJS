@@ -66,7 +66,7 @@ export function ReviewsScreen() {
               </View>
               <Text style={styles.hint}>Đánh giá từ 3 sao trở xuống mà không đúng sự thật, bấm "Khiếu nại" để quản trị viên đối chiếu ảnh và tin nhắn của đơn.</Text>
             </View>
-          ) : null
+          ) : undefined
         }
         renderItem={({ item }) => (
           <Card style={{ gap: 6 }}>
@@ -94,8 +94,8 @@ export function ReviewsScreen() {
             </View>
           </Card>
         )}
-        ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null}
-        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : null} empty="Chưa có đánh giá nào" icon="star-outline" />}
+        ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : undefined}
+        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : undefined} empty="Chưa có đánh giá nào" icon="star-outline" />}
       />
     </Screen>
   );

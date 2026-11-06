@@ -17,12 +17,18 @@
     },
     "android": {
       "package": "vn.thonhanh.customer",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
+      ]
     },
     "plugins": [
       [
         "expo-location",
-        { "locationWhenInUsePermission": "Thợ Nhanh dùng vị trí để lưu địa chỉ và tìm thợ điện gần bạn." }
+        {
+          "locationWhenInUsePermission": "Thợ Nhanh dùng vị trí để lưu địa chỉ và tìm thợ điện gần bạn."
+        }
       ],
       [
         "expo-image-picker",
@@ -31,9 +37,15 @@
           "cameraPermission": "Chụp ảnh chỗ hỏng để thợ biết trước cần mang gì, và gửi ảnh trong tin nhắn."
         }
       ],
-      ["expo-notifications", { "color": "#059669" }],
+      [
+        "expo-notifications",
+        {
+          "color": "#059669"
+        }
+      ],
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-status-bar"
     ]
   }
 }

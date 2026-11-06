@@ -71,7 +71,7 @@ export default function JobsScreen() {
         )}
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && void q.fetchNextPage()}
         onEndReachedThreshold={0.4}
-        ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ margin: 12 }} /> : null}
+        ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ margin: 12 }} /> : undefined}
         ListEmptyComponent={
           <StateView
             loading={q.isLoading}

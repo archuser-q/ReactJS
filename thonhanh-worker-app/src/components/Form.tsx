@@ -1,6 +1,6 @@
 /** Ô nhập, chip chọn, thanh chọn đoạn, công tắc, dòng menu */
 import { forwardRef, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type TextInput as RNTextInput, type TextInputProps, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type TextInputInstance, type TextInputProps, type ViewStyle } from 'react-native';
 import { Text, TextInput } from './Text';
 import { Icon, type IconName } from './Icon';
 import { colors, op, radius } from '../theme';
@@ -15,7 +15,7 @@ type FieldProps = TextInputProps & {
   containerStyle?: StyleProp<ViewStyle>;
 };
 
-export const TextField = forwardRef<RNTextInput, FieldProps>(function TextField(
+export const TextField = forwardRef<TextInputInstance, FieldProps>(function TextField(
   { label, icon, error, hint, secure, suffix, containerStyle, style, multiline, ...rest },
   ref,
 ) {

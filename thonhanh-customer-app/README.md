@@ -4,7 +4,7 @@ Frontend **App Khách hàng**, dựng theo bản thiết kế Figma Make, nối 
 (repo `nodejs`, nhóm API `/api/customer`) và **đồng bộ với App Thợ v2** (thành viên B): cùng CSDL, cùng bộ điều phối
 ghép cặp, cùng kênh realtime Socket.IO, cùng API tải ảnh và bộ bản đồ.
 
-- Expo SDK 57 · React Native 0.86 · TypeScript
+- Expo SDK 58 · React Native 0.88 · TypeScript
 - Phạm vi: **dịch vụ thợ điện** (Sửa chữa điện · Lắp đặt thiết bị điện · Đồ điện gia dụng · Đi dây & tủ điện)
 - Đăng nhập email / SĐT + mật khẩu, Google, Facebook; quên mật khẩu qua mã email; đổi mật khẩu (mật khẩu mới: ≥ 8 ký tự, có chữ và số, giống app thợ)
 - Thanh toán **chỉ qua MoMo / VNPay** (sandbox), không nhận tiền mặt; còn đơn đã xong chưa trả thì app đưa khách tới đơn đó trước khi đặt đơn mới
@@ -16,8 +16,8 @@ ghép cặp, cùng kênh realtime Socket.IO, cùng API tải ảnh và bộ bả
 
 ## 1. Chuẩn bị (làm 1 lần)
 
-1. Cài **Node.js bản LTS** – kiểm tra: `node -v`
-2. Trên điện thoại cài app **Expo Go**
+1. Cài **Node.js bản LTS** – kiểm tra: `node -v` (SDK 58 cần 22.13+ hoặc 24.3+; không dùng bản lẻ 23, 25)
+2. Trên điện thoại cài app **Expo Go** bản hỗ trợ SDK 58
 3. Điện thoại và máy tính **cùng mạng Wi-Fi**
 
 ## 2. Chạy backend trước
@@ -78,7 +78,7 @@ Nếu backend chạy ở máy khác: ở màn Đăng nhập bấm **"Máy chủ 
 | Đơn mãi "Đang tìm thợ" rồi tự huỷ | Chưa có thợ đang bật nhận đơn gần đó: mở app thợ và bật nhận đơn, hoặc bật thợ ảo. Đơn đặt ngay chờ tối đa 15 phút (`DISPATCH_MAX_WAIT_MINUTES`). |
 | Nút Google / Facebook báo "chưa bật" | Expo Go không nhận kết quả đăng nhập Google/Facebook; cần development build và cấu hình `GOOGLE_*` / `FACEBOOK_*` ở backend. Dùng email để demo. |
 | Không nhận thông báo đẩy | Expo Go không hỗ trợ push (SDK 53+). Thông báo vẫn đến qua Socket.IO khi app đang mở. Push cần development build + `PUSH_ENABLED=true`. |
-| "Project is incompatible with this version of Expo Go" | `npx expo install expo@latest` rồi `npx expo install --fix`. |
+| "Project is incompatible with this version of Expo Go" | Expo Go trên điện thoại khác đời SDK (app dùng SDK 58). Cài Expo Go bản SDK 58 tại https://expo.dev/go và tắt tự cập nhật. Không tự chạy `npx expo install expo@latest` (sẽ đổi phiên bản cả app). |
 
 ## 6. Cấu trúc thư mục
 

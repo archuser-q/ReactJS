@@ -8,7 +8,9 @@ import {
   StyleSheet,
   Text as RNText,
   TextInput as RNTextInput,
+  type TextInputInstance,
   type TextInputProps,
+  type TextInstance,
   type TextProps,
   type TextStyle,
 } from 'react-native';
@@ -30,13 +32,14 @@ function weightOf(style: TextProps['style'], fallback: Weight): Weight {
   return '400';
 }
 
-export const Text = forwardRef<RNText, TextProps>(function Text({ style, ...rest }, ref) {
+// RN 0.88 (SDK 58): ref dùng kiểu instance (TextInstance / TextInputInstance), không dùng kiểu của component
+export const Text = forwardRef<TextInstance, TextProps>(function Text({ style, ...rest }, ref) {
   const w = weightOf(style, '400');
   // Tôn trọng cỡ chữ lớn của máy nhưng giới hạn 130% để bố cục (số tiền, nút) không vỡ khung
   return <RNText ref={ref} maxFontSizeMultiplier={1.3} {...rest} style={[styles.base, style, { fontFamily: fonts[w], fontWeight: 'normal' }]} />;
 });
 
-export const TextInput = forwardRef<RNTextInput, TextInputProps>(function TextInput({ style, ...rest }, ref) {
+export const TextInput = forwardRef<TextInputInstance, TextInputProps>(function TextInput({ style, ...rest }, ref) {
   const w = weightOf(style, '500');
   return (
     <RNTextInput

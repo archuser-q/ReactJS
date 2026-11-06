@@ -206,7 +206,7 @@ export function ReportsScreen() {
             <Text style={styles.time}>{fmtDateTime(r.created_at)}</Text>
           </Card>
         )}
-        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : null} empty="Chưa có báo cáo nào" icon="file-document-outline" />}
+        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : undefined} empty="Chưa có báo cáo nào" icon="file-document-outline" />}
       />
     </Screen>
   );

@@ -1,11 +1,19 @@
 /** Bản đồ trên điện thoại (react-native-webview). Bản web: AppMap.web.tsx */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type RefAttributes } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import RNWebView, { type WebViewMessageEvent } from 'react-native-webview';
+import type { AndroidWebViewProps, IOSWebViewProps } from 'react-native-webview/lib/WebViewTypes';
 import { mapHtml, type MapData } from './mapHtml';
 import { colors } from '../../theme';
 
 export type { MapData, MapMarker, MapPadding } from './mapHtml';
+
+/**
+ * react-native-webview 14: kiểu chung của gói là bản "nền tảng không hỗ trợ" (bản thật nằm ở WebView.android/.ios),
+ * TypeScript không biết chọn theo nền tảng nên ép về đúng kiểu props của Android/iOS và phần ref app dùng.
+ */
+type WebViewHandle = { injectJavaScript: (script: string) => void };
+const WebView = RNWebView as unknown as ComponentType<IOSWebViewProps & AndroidWebViewProps & RefAttributes<WebViewHandle>>;
 
 export type AppMapProps = {
   data: MapData;
@@ -20,7 +28,7 @@ export type AppMapProps = {
 };
 
 export function AppMap({ data, height, style, onPress, onTouchActive }: AppMapProps) {
-  const ref = useRef<WebView>(null);
+  const ref = useRef<WebViewHandle>(null);
   const [ready, setReady] = useState(false);
   // Giữ nguyên object source giữa các lần render để WebView không nạp lại trang (~1,3 MB) mỗi khi màn hình cập nhật
   const source = useMemo(() => ({ html: mapHtml(), baseUrl: 'https://thonhanh.app/' }), []);

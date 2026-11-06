@@ -344,7 +344,7 @@ Realtime (Socket.IO cùng cổng 3000, `auth: { token }`): `offer:new`, `offer:c
 
 ## 11. Kiến trúc App Thợ
 
-- **Expo SDK 57** (React Native 0.86, React 19.2, TypeScript), chạy được Android, iOS và **web** (để demo bằng trình duyệt).
+- **Expo SDK 58** (React Native 0.88, React 19.3, TypeScript), chạy được Android, iOS và **web** (để demo bằng trình duyệt).
 - Điều hướng: React Navigation 7 — Stack gốc gồm 2 bộ màn: *chưa đăng nhập* (Đăng nhập, Đăng ký...) và *đã đăng nhập* (4 tab *Trang chủ, Công việc, Thu nhập, Hồ sơ* + các màn chi tiết + Hoàn thiện hồ sơ). Bộ màn **không đổi theo trạng thái duyệt**: bản trước tách riêng bộ màn "chưa duyệt", admin bỏ duyệt lúc thợ đang mở 1 màn thì cả stack bị thay, bấm ← bị đơ.
 - Dữ liệu: TanStack Query 5 + **Socket.IO** (`src/realtime/useRealtime.ts`): sự kiện từ server chỉ làm app tải lại đúng phần liên quan. Hỏi định kỳ làm dự phòng khi màn đang mở (lời mời 15 s khi socket đang nối / 3 s khi mất kết nối, chat 4 s, chi tiết đơn 6 s, trang chủ 8 s, danh sách việc 10 s); tự tải lại khi app quay về foreground hoặc socket nối lại.
 - Vị trí: `expo-location`, gửi khi đang bật nhận đơn hoặc đang có việc (đang đến / đã đến / đang sửa).

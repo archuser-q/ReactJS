@@ -38,7 +38,7 @@ Lý do: Hungarian O(n³) chạy theo **từng lượt lô** (vài chục đơn c
 
 | Cũ | Mới |
 |---|---|
-| framework cross-platform (React Native/Flutter) | **React Native (Expo SDK 57, TypeScript)**, chạy Android/iOS và bản web để demo |
+| framework cross-platform (React Native/Flutter) | **React Native (Expo SDK 58, TypeScript)**, chạy Android/iOS và bản web để demo |
 | RESTful API kết hợp kênh realtime (WebSocket) | **RESTful API Node.js (Express 5)**, kênh realtime **Socket.IO** (lời mời, trạng thái đơn, tin nhắn, vị trí thợ) + **thông báo đẩy (Expo Push)**; truy vấn định kỳ chỉ làm dự phòng khi mất kết nối |
 | PostgreSQL | **PostgreSQL 16 + PostGIS** |
 | SDK bản đồ (Google Maps/Mapbox), SMS OTP, đăng nhập Google/Facebook | Bản đồ **MapLibre GL + OpenFreeMap** (vector, miễn phí, không cần API key), dự phòng **Leaflet + OpenStreetMap**; đăng nhập **Email + mật khẩu / Google / Facebook**, quên mật khẩu qua email. **Bỏ SMS OTP** (tốn phí) |

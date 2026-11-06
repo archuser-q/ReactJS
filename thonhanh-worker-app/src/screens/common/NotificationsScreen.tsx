@@ -130,8 +130,8 @@ export default function NotificationsScreen() {
             </Pressable>
           );
         }}
-        ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null}
-        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : null} empty="Chưa có thông báo" icon="bell-outline" />}
+        ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : undefined}
+        ListEmptyComponent={<StateView loading={q.isLoading} error={q.error ? errMsg(q.error) : undefined} empty="Chưa có thông báo" icon="bell-outline" />}
       />
     </Screen>
   );

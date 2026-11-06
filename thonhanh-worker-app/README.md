@@ -2,7 +2,7 @@
 
 App dành cho thợ điện của nền tảng THỢ NHANH: đăng ký & xác minh hồ sơ, bật/tắt nhận đơn, nhận lời mời từ thuật toán ghép cặp, làm việc tại nhà khách (dẫn đường, vuốt cập nhật tiến độ, **kiểm tra an toàn điện**, ảnh trước/sau, báo giá phát sinh theo bảng giá), nhận tiền qua ví (khách trả MoMo / VNPay, không tiền mặt), theo dõi thu nhập, rút tiền, đánh giá, hạng thợ.
 
-**Expo SDK 57 · React Native 0.86 · React 19 · TypeScript** — chạy Android, iOS và **web** (để demo bằng trình duyệt).
+**Expo SDK 58 · React Native 0.88 · React 19 · TypeScript** — chạy Android, iOS và **web** (để demo bằng trình duyệt).
 
 | Thư mục | Nội dung |
 |---|---|
@@ -47,7 +47,7 @@ Các lệnh `demo:customer` chạy trong thư mục **backend-node** (đóng vai
 7. Thuật toán ghép cặp khi đông đơn: `docker compose --profile bots up -d` (thợ ảo) rồi `... demo:customer -- rush --count 12`, xem `docker compose exec api npm run demo:customer -- show <mã đơn>` (đơn nào đi Greedy, đơn nào đi Hungarian).
 
 ### Chạy trên điện thoại thật (Expo Go)
-Điện thoại và máy tính **cùng Wi-Fi** (không dùng Wi-Fi khách / Wi-Fi trường chặn các máy thấy nhau), điện thoại cài **Expo Go** bản hỗ trợ SDK 57, backend đang chạy.
+Điện thoại và máy tính **cùng Wi-Fi** (không dùng Wi-Fi khách / Wi-Fi trường chặn các máy thấy nhau), điện thoại cài **Expo Go** bản hỗ trợ SDK 58, backend đang chạy.
 
 1. Lấy IP LAN của máy tính: `ipconfig` → mục *Wireless LAN adapter Wi-Fi* → **IPv4 Address** (VD `192.168.1.23`).
 2. Kiểm tra mạng: trên trình duyệt điện thoại mở `http://192.168.1.23:3000/api/health` — thấy `{"status":"ok"}` là thông. Không vào được thì xem mục *Tường lửa* bên dưới.
@@ -60,7 +60,7 @@ Các lệnh `demo:customer` chạy trong thư mục **backend-node** (đóng vai
 4. Android: mở Expo Go → **Scan QR code**. iPhone: mở app **Camera** quét QR. Lần đầu tải app mất khoảng 1 phút.
 5. Đăng nhập `tho@thonhanh.vn` / `12345678`, cho phép vị trí. Đơn demo (`demo:customer -- order`) tự đặt quanh vị trí thật của điện thoại.
 
-Có Node.js 20+ thì thay bước 3 bằng `npm install` rồi `npx expo start` (máy có nhiều card mạng thì đặt trước `set REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.23`).
+Có Node.js 22.13+ hoặc 24.3+ (SDK 58 không chạy với bản lẻ 23, 25) thì thay bước 3 bằng `npm install` rồi `npx expo start` (máy có nhiều card mạng thì đặt trước `set REACT_NATIVE_PACKAGER_HOSTNAME=192.168.1.23`).
 
 **Tường lửa Windows**: đặt mạng Wi-Fi đang dùng là *Private* (Settings → Network & Internet → Wi-Fi → tên mạng → *Private network*), rồi mở PowerShell **Run as administrator**:
 ```powershell
@@ -161,7 +161,7 @@ npx expo install --fix     # sửa phiên bản thư viện cho khớp SDK
 | Bật nhận đơn nhưng không có lời mời | Cần hồ sơ đã duyệt; cho phép vị trí; vị trí phải mới hơn 10 phút; đơn phải đúng nhóm dịch vụ & trong bán kính |
 | Bấm bật nhận đơn thì báo "chưa gửi hồ sơ" / "đang chờ duyệt" | Đúng thiết kế: thợ chưa được duyệt vẫn dùng app nhưng chưa nhận đơn. Nộp giấy tờ ở Hồ sơ → Giấy tờ xác minh, chờ admin duyệt |
 | Bản đồ không hiện đường phố | Cần Internet (máy chủ OpenFreeMap / OpenStreetMap); mạng công ty/trường chặn thì thử mạng khác |
-| Expo Go báo *Project is incompatible with this version of Expo Go* | Expo Go trên điện thoại khác phiên bản SDK (app dùng SDK 57). Android: cài đúng bản tại https://expo.dev/go |
+| Expo Go báo *Project is incompatible with this version of Expo Go* | Expo Go trên điện thoại khác phiên bản SDK (app dùng SDK 58). Android: cài đúng bản tại https://expo.dev/go và tắt tự cập nhật Expo Go |
 | Chạy `up` xong không thấy mã QR (`docker compose --profile dev ps -a` thấy `worker-dev` ở trạng thái *Created*) | Chạy `docker compose --profile dev up -d worker-dev` rồi `docker compose --profile dev logs -f worker-dev` (log có mã QR). Lệnh `up -d` vẫn đứng yên thì khởi động lại Docker Desktop. Hoặc bỏ qua QR: Expo Go → **Enter URL manually** → `exp://<IP máy tính>:8081` (hoặc bấm vào dự án trong mục *Recently opened*) |
 | Quét QR xong Expo Go báo *Failed to connect / timed out* | Sai `HOST_IP`, khác Wi-Fi, hoặc tường lửa chặn cổng 8081 (xem mục Tường lửa) |
 | Vào được app nhưng báo "Không kết nối được máy chủ" | Backend chưa chạy hoặc tường lửa chặn cổng 3000: thử `http://<IP>:3000/api/health` trên trình duyệt điện thoại |
